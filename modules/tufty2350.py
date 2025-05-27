@@ -2,7 +2,6 @@ import machine
 import micropython
 from picographics import PicoGraphics, DISPLAY_EXPLORER
 import time
-import wakeup
 import pcf85063a
 import cppmem
 
@@ -51,7 +50,6 @@ BUTTONS = {
     BUTTON_UP: machine.Pin(BUTTON_UP, machine.Pin.IN, machine.Pin.PULL_DOWN),
 }
 
-WAKEUP_MASK = 0
 
 i2c = machine.I2C(0)
 rtc = pcf85063a.PCF85063A(i2c)
@@ -66,29 +64,6 @@ cppmem.set_mode(cppmem.MICROPYTHON)
 
 def is_wireless():
     return True
-
-
-def woken_by_rtc():
-    return bool(wakeup.get_gpio_state() & (1 << RTC_ALARM))
-
-
-def woken_by_button():
-    return wakeup.get_gpio_state() & BUTTON_MASK > 0
-
-
-def pressed_to_wake(button):
-    return wakeup.get_gpio_state() & (1 << button) > 0
-
-
-def reset_pressed_to_wake():
-    wakeup.reset_gpio_state()
-
-
-def pressed_to_wake_get_once(button):
-    global WAKEUP_MASK
-    result = (wakeup.get_gpio_state() & ~WAKEUP_MASK & (1 << button)) > 0
-    WAKEUP_MASK |= (1 << button)
-    return result
 
 
 def system_speed(speed):
@@ -204,7 +179,7 @@ class Tufty2350():
         turn_on()
 
     def pressed(self, button):
-        return BUTTONS[button].value() == 1 or pressed_to_wake_get_once(button)
+        return BUTTONS[button].value() == 1
 
     def pressed_any(self):
         for button in BUTTONS.values():

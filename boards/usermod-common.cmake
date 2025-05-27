@@ -46,8 +46,6 @@ include(servo/micropython)
 include(encoder/micropython)
 include(motor/micropython)
 
-# Wakeup module for early GPIO latch
-include(cmodules/wakeup/micropython)
 
 # Still required for version.py
 include(modules_py/modules_py)
