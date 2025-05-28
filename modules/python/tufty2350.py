@@ -31,11 +31,11 @@ SYSTEM_FREQS = [
 ]
 
 BUTTONS = {
-    BUTTON_DOWN: machine.Pin(BUTTON_DOWN, machine.Pin.IN, machine.Pin.PULL_DOWN),
-    BUTTON_A: machine.Pin(BUTTON_A, machine.Pin.IN, machine.Pin.PULL_DOWN),
-    BUTTON_B: machine.Pin(BUTTON_B, machine.Pin.IN, machine.Pin.PULL_DOWN),
-    BUTTON_C: machine.Pin(BUTTON_C, machine.Pin.IN, machine.Pin.PULL_DOWN),
-    BUTTON_UP: machine.Pin(BUTTON_UP, machine.Pin.IN, machine.Pin.PULL_DOWN),
+    BUTTON_DOWN: machine.Pin(BUTTON_DOWN, machine.Pin.IN, machine.Pin.PULL_UP),
+    BUTTON_A: machine.Pin(BUTTON_A, machine.Pin.IN, machine.Pin.PULL_UP),
+    BUTTON_B: machine.Pin(BUTTON_B, machine.Pin.IN, machine.Pin.PULL_UP),
+    BUTTON_C: machine.Pin(BUTTON_C, machine.Pin.IN, machine.Pin.PULL_UP),
+    BUTTON_UP: machine.Pin(BUTTON_UP, machine.Pin.IN, machine.Pin.PULL_UP),
 }
 
 cppmem.set_mode(cppmem.MICROPYTHON)
@@ -77,10 +77,10 @@ class Tufty2350():
         raise RuntimeError("Thickness not supported in PicoGraphics.")
 
     def pressed(self, button):
-        return BUTTONS[button].value() == 1
+        return BUTTONS[button].value() == 0
 
     def pressed_any(self):
         for button in BUTTONS.values():
-            if button.value():
+            if button.value() == 0:
                 return True
         return False
