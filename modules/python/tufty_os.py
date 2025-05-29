@@ -147,7 +147,7 @@ def warning(display, message, width=tufty2350.WIDTH - 20, height=tufty2350.HEIGH
     print(message)
 
     if display is None:
-        display = tufty2350.tufty2350()
+        display = tufty2350.Tufty2350()
         display.led(128)
 
     # Draw a light grey background
