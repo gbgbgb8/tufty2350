@@ -20,7 +20,7 @@ SYSTEM_TURBO = 4
 
 LED = 8
 SENSOR_POWER = 9
-LIGHT_SENSE = 43
+LIGHT_SENSE_ADC = 43
 
 WIDTH = 320
 HEIGHT = 240
@@ -40,6 +40,9 @@ BUTTONS = {
     BUTTON_C: machine.Pin(BUTTON_C, machine.Pin.IN, machine.Pin.PULL_UP),
     BUTTON_UP: machine.Pin(BUTTON_UP, machine.Pin.IN, machine.Pin.PULL_UP),
 }
+
+LIGHT_POWER = machine.Pin(SENSOR_POWER, machine.Pin.OUT)
+LIGHT_SENSOR = machine.ADC(machine.Pin(LIGHT_SENSE_ADC))
 
 cppmem.set_mode(cppmem.MICROPYTHON)
 
@@ -106,3 +109,10 @@ class Tufty2350():
     def sleep(self):
         self.display.set_backlight(0)
         powman.goto_dormant_until_pin(None, False, False)
+
+    def get_light(self):
+        LIGHT_POWER.value(1)
+        reading = LIGHT_SENSOR.read_u16()
+        LIGHT_POWER.value(0)
+
+        return reading
