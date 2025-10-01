@@ -16,22 +16,15 @@ list(APPEND CMAKE_MODULE_PATH "${PIMORONI_PICO_PATH}/micropython/modules")
 # Allows us to find downstream /modules/c/*/
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/..")
 
-set(CMAKE_C_STANDARD 11)
+set(CMAKE_C_STANDARD 17)
 set(CMAKE_CXX_STANDARD 17)
 
 # Essential
 include(pimoroni_i2c/micropython)
-include(pimoroni_bus/micropython)
 
-# Pico Graphics Essential
-include(hershey_fonts/micropython)
-include(bitmap_fonts/micropython)
-include(picographics/micropython)
+include(modules/c/st7789/micropython)
+include(modules/c/picovector/micropython)
 
-# Pico Graphics Extra
-include(pngdec/micropython)
-include(jpegdec/micropython)
-include(picovector/micropython)
 include(qrcode/micropython/micropython)
 
 # Sensors & Breakouts

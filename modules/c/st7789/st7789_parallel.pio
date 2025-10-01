@@ -1,0 +1,91 @@
+.program st7789_parallel
+.side_set 1
+
+.wrap_target
+    out pins, 8  side 0
+    nop          side 1
+.wrap
+
+.program st7789_parallel_pd
+.side_set 1
+
+.wrap_target
+    pull         side 0
+
+    mov x osr    side 0 ; Store the OSR in scratch X
+    out pins, 8  side 0
+    nop          side 1
+    out pins, 8  side 0
+
+    mov osr x    side 1 ; Retrieve the OSR from scratch X
+    out pins, 8  side 0
+    nop          side 1
+    out pins, 8  side 0
+    nop          side 1
+.wrap
+
+.program st7789_parallel_pd_rgba_to_rgb565
+.side_set 1
+
+.wrap_target
+
+    pull         side 0 ; Pull RGBA pixel - 32bits into OSR
+
+    out null 8   side 0
+    in osr, 5    side 0 
+    out null, 3  side 0 
+    in osr, 6    side 0 
+    out null, 2  side 0 
+    in osr, 5    side 0 
+    out null, 3  side 0 
+    /*
+    out null, 3  side 0; // discard red 3 lsb
+    in osr, 5    side 0; // 5 bits red
+    out null, 7  side 0; // discard remaining red bits, and 2 green lsb
+
+    in osr, 6    side 0; // 6 bits green
+    out null, 9  side 0; // discard remaining green bits, and 3 blue lsb
+
+    in osr, 5    side 0; // 5 bits blue
+    */
+
+    mov osr isr  side 0; // mov our prepared bits into the osr
+    out pins, 8  side 0;
+    nop          side 1;
+    nop          side 1;
+    nop          side 0;
+    out pins, 8  side 0;
+    nop          side 1;
+    nop          side 1;
+
+    mov osr isr  side 0; // mov our prepared bits into the osr
+    out pins, 8  side 0;
+    nop          side 1;
+    nop          side 1;
+    nop          side 0;
+    out pins, 8  side 0;
+    nop          side 1;
+    nop          side 1;
+/*
+    mov x osr    side 0 ; Store the OSR in scratch X
+
+    out pins, 5  side 0 ; 5 bits red
+    out null, 3  side 0 ; 3 bits red discard
+    out pins, 3  side 1 ; remaining 3 bits from MSB
+    nop          side 1
+    out pins, 3  side 0 ; remaining 3 bits green
+    out null, 2  side 0 ; 2 bits green discard
+    out pins, 5  side 1 ; 5 bits blue
+    nop          side 1
+
+    mov osr x    side 0 ; Retrieve the OSR from scratch X
+    out pins, 5  side 0 ; 5 bits red
+    out null, 3  side 0 ; 3 bits red discard
+    out pins, 3  side 1 ; remaining 3 bits from MSB
+    nop          side 1
+    out pins, 3  side 0 ; remaining 3 bits green
+    out null, 2  side 0 ; 2 bits green discard
+    out pins, 5  side 1 ; 5 bits blue
+    nop          side 1
+*/
+.wrap
