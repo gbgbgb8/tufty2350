@@ -21,19 +21,20 @@ extern "C" {
 
 typedef struct _ST7789_obj_t {
     mp_obj_base_t base;
+    ST7789 *display;
 } ST7789_obj_t;
 
 
 mp_obj_t st7789_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *all_args) {
     _ST7789_obj_t *self = mp_obj_malloc_with_finaliser(ST7789_obj_t, &ST7789_type);
-    display = m_new_class(ST7789);
+    self->display = display = m_new_class(ST7789);
     return MP_OBJ_FROM_PTR(self);
 }
 
 mp_obj_t st7789___del__(mp_obj_t self_in) {
-    (void)self_in;
+    _ST7789_obj_t *self = (_ST7789_obj_t*)MP_OBJ_TO_PTR(self_in);
     m_del_class(ST7789, display);
-    display = nullptr;
+    self->display = display = nullptr;
     return mp_const_none;
 }
 
