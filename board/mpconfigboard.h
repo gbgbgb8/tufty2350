@@ -26,3 +26,6 @@ int mp_hal_is_pin_reserved(int n);
 #define MICROPY_HW_USB_DESC_STR_MAX             (40)
 #define MICROPY_HW_USB_MANUFACTURER_STRING      "Pimoroni"
 #define MICROPY_HW_USB_PRODUCT_FS_STRING        MICROPY_HW_BOARD_NAME " MicroPython"
+
+extern void modpicovector_deinit();
+#define MICROPY_BOARD_START_SOFT_RESET          modpicovector_deinit
