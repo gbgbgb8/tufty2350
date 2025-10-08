@@ -43,10 +43,6 @@ namespace pimoroni {
     int parallel_pd_offset;
     uint pd_st_dma;
 
-    // LCD state tracking
-    bool display_on = false;
-    bool display_sleep = true;
-
   public:
     // Parallel init
     ST7789() {
@@ -94,7 +90,7 @@ namespace pimoroni {
       sm_config_set_out_shift(&c, false, true, 8);
 
       // Determine clock divider
-      constexpr uint32_t max_pio_clk = 64 * MHZ;
+      constexpr uint32_t max_pio_clk = 60 * MHZ;
       const uint32_t sys_clk_hz = clock_get_hz(clk_sys);
       const uint32_t clk_div = (sys_clk_hz + max_pio_clk - 1) / max_pio_clk;
 

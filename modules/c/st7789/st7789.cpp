@@ -156,14 +156,8 @@ namespace pimoroni {
   void ST7789::update() {
     uint8_t cmd = reg::RAMWR;
 
-    if(!display_on) {
-      command(reg::DISPON);  // turn display on
-      sleep_ms(100);
-      display_on = true;
-    }
-
     // Determine clock divider
-    constexpr uint32_t max_pio_clk = 50 * MHZ;
+    constexpr uint32_t max_pio_clk = 60 * MHZ;
     const uint32_t sys_clk_hz = clock_get_hz(clk_sys);
 
     // Relying on the fact that (n + n - 1) / n gives us ~1.98 and rounds (truncates) down to 1
@@ -233,14 +227,5 @@ namespace pimoroni {
     float gamma = 2.8;
     uint16_t value = (uint16_t)(pow((float)(brightness) / 255.0f, gamma) * 65535.0f + 0.5f);
     pwm_set_gpio_level(bl, value);
-    if(brightness == 0 && !display_sleep) {
-      command(reg::SLPOUT);  // leave sleep mode
-      sleep_ms(5);
-      display_sleep = true;
-    } else if (display_sleep) {
-      command(reg::SLPOUT);  // leave sleep mode
-      sleep_ms(120);
-      display_sleep = false;
-    }
   }
 }
