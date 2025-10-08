@@ -1,5 +1,8 @@
 #pragma once
 
+#include <cstdlib>
+#include <math.h>
+
 #include "hardware/spi.h"
 #include "hardware/dma.h"
 #include "hardware/gpio.h"
@@ -29,10 +32,12 @@ namespace pimoroni {
     uint rd_sck = 31;
     uint d0 = 32;
     uint bl = 26;
-  
+
     // pio stuff
     PIO parallel_pio = pio1;
-  
+    uint32_t startup_hz = 0;
+    const uint32_t max_pio_clk = 40 * MHZ;
+
     // Regular commands
     uint parallel_sm;
     int parallel_offset;
@@ -90,12 +95,9 @@ namespace pimoroni {
       sm_config_set_out_shift(&c, false, true, 8);
 
       // Determine clock divider
-      constexpr uint32_t max_pio_clk = 60 * MHZ;
-      const uint32_t sys_clk_hz = clock_get_hz(clk_sys);
-      const uint32_t clk_div = (sys_clk_hz + max_pio_clk - 1) / max_pio_clk;
-
-      sm_config_set_clkdiv(&pd_c, clk_div);
-      sm_config_set_clkdiv(&c, clk_div);
+      startup_hz = clock_get_hz(clk_sys);
+      sm_config_set_clkdiv(&pd_c, fmax(1.0f, ceil(float(startup_hz) / max_pio_clk)));
+      sm_config_set_clkdiv(&c, fmax(1.0f, ceil(float(startup_hz) / max_pio_clk)));
 
       pio_sm_init(parallel_pio, parallel_pd_sm, parallel_pd_offset, &pd_c);
       pio_sm_set_enabled(parallel_pio, parallel_pd_sm, true);
@@ -153,7 +155,6 @@ namespace pimoroni {
 
   private:
     void init();
-    void write_blocking_dma(const uint8_t *src, size_t len);
     void write_blocking_parallel(const uint8_t *src, size_t len);
     void write_blocking_parallel_pixel_doubled(const uint8_t *src, size_t len);
     void command(uint8_t command, size_t len = 0, const char *data = NULL);

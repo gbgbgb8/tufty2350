@@ -1,11 +1,8 @@
 #include "st7789.hpp"
 
-#include <cstdlib>
-#include <math.h>
-
 extern uint32_t framebuffer[];
 namespace pimoroni {
-  
+
   //uint32_t framebuffer[160 * 120];
   uint16_t backbuffer[160 * 240];
   //uint16_t linebuffer[160 * 2];
@@ -102,7 +99,7 @@ namespace pimoroni {
     uint8_t madctl = MADCTL::ROW_ORDER | MADCTL::SWAP_XY | MADCTL::SCAN_ORDER;
     uint16_t caset[2] = {0, 319};
     uint16_t raset[2] = {0, 239};
-  
+
     // Byte swap the 16bit rows/cols values
     caset[0] = __builtin_bswap16(caset[0]);
     caset[1] = __builtin_bswap16(caset[1]);
@@ -114,6 +111,11 @@ namespace pimoroni {
     command(reg::MADCTL, 1, (char *)&madctl);
 
     update();
+
+    dma_channel_wait_for_finish_blocking(pd_st_dma);
+    while(!pio_sm_is_tx_fifo_empty(parallel_pio, parallel_pd_sm))
+      ;
+
     set_backlight(255); // Turn backlight on now surprises have passed
   }
 
@@ -121,19 +123,12 @@ namespace pimoroni {
     return framebuffer;
   }
 
-  void ST7789::write_blocking_dma(const uint8_t *src, size_t len) {
-    while (dma_channel_is_busy(st_dma))
-      ;
+  void ST7789::write_blocking_parallel(const uint8_t *src, size_t len) {
     dma_channel_set_trans_count(st_dma, len, false);
     dma_channel_set_read_addr(st_dma, src, true);
-  }
-
-  void ST7789::write_blocking_parallel(const uint8_t *src, size_t len) {
-    write_blocking_dma(src, len);
     dma_channel_wait_for_finish_blocking(st_dma);
 
-    // This may cause a race between PIO and the
-    // subsequent chipselect deassert for the last pixel
+    // Prevent a race between PIO and chip-select or data/command
     while(!pio_sm_is_tx_fifo_empty(parallel_pio, parallel_sm))
       ;
   }
@@ -144,7 +139,6 @@ namespace pimoroni {
     gpio_put(cs, 0);
 
     write_blocking_parallel(&command, 1);
-
     if(data) {
       gpio_put(dc, 1); // data mode
       write_blocking_parallel((const uint8_t*)data, len);
@@ -156,18 +150,18 @@ namespace pimoroni {
   void ST7789::update() {
     uint8_t cmd = reg::RAMWR;
 
-    // Determine clock divider
-    constexpr uint32_t max_pio_clk = 60 * MHZ;
-    const uint32_t sys_clk_hz = clock_get_hz(clk_sys);
-
-    // Relying on the fact that (n + n - 1) / n gives us ~1.98 and rounds (truncates) down to 1
-    const uint32_t clk_div = (sys_clk_hz + max_pio_clk - 1) / max_pio_clk;
-
-    pio_sm_set_clkdiv(parallel_pio, parallel_pd_sm, clk_div);
-  
     dma_channel_wait_for_finish_blocking(pd_st_dma);
     while(!pio_sm_is_tx_fifo_empty(parallel_pio, parallel_pd_sm))
       ;
+
+    // Determine clock divider
+    const uint32_t sys_clk_hz = clock_get_hz(clk_sys);
+
+    if (sys_clk_hz != startup_hz) {
+      startup_hz = sys_clk_hz;
+      pio_sm_set_clkdiv(parallel_pio, parallel_pd_sm, fmax(1.0f, ceil(float(sys_clk_hz) / max_pio_clk)));
+      pio_sm_set_clkdiv(parallel_pio, parallel_sm, fmax(1.0f, ceil(float(sys_clk_hz) / max_pio_clk)));
+    }
 
     uint8_t *src = (uint8_t *)framebuffer;
     uint16_t *dst = (uint16_t *)backbuffer;
@@ -210,7 +204,7 @@ namespace pimoroni {
       dma_channel_set_trans_count(pd_st_dma, width * 2, false);
       dma_channel_set_read_addr(pd_st_dma, &linebuffer, true);
     }
-    
+
     dma_channel_wait_for_finish_blocking(pd_st_dma);*/
 
     // This may cause a race between PIO and the
