@@ -361,6 +361,14 @@ static int64_t alarm_clear_double_tap(alarm_id_t id, __unused void *user_data) {
     return 0;
 }
 
+void shipping_mode() {
+    powman_init();
+    i2c_disable();
+    int rc = powman_off();
+    hard_assert(rc == PICO_OK);
+    hard_assert(false); // should never get here!
+}
+
 void long_press_sleep() {
     powman_init();
 
@@ -408,7 +416,11 @@ void handle_long_press() {
         // If the LEDs have completed their fade to black
         if(cbr > 0 && level == 0) {
             clear_double_tap_flag();
-            long_press_sleep();
+            if(!gpio_get(BW_SWITCH_UP) && !gpio_get(BW_SWITCH_DOWN)) {
+                shipping_mode();
+            } else {
+                long_press_sleep();
+            }
             break; // unreachable
         };
         br++;
@@ -421,44 +433,6 @@ void handle_long_press() {
     gpio_set_dir_out_masked(0b1111);
     gpio_put_masked(0b1111, 0);
 }
-
-/* It's nice to have some power on indication, but these are confusing!
-static int async_led_step = 0;
-
-static int64_t alarm_power_on_leds(alarm_id_t id, __unused void *user_data) {
-    int cbr = async_led_step;
-    int o = cbr >= LED_TOTAL ? LED_TOTAL - (cbr - LED_TOTAL) * 2 : cbr;
-    int phase = cbr >= LED_TOTAL ? LED_OUT_PHASE : LED_IN_PHASE;
-    int level = 0;
-    for(unsigned i = 0u; i < 4; i++) {
-        int v = fmax(0, fmin(LED_PEAK_BRIGHTNESS, o));
-        pwm_set_gpio_level(led_gpios_poweron[i], v * LED_GAMMA);
-        level += v * LED_GAMMA;
-        o -= phase;
-    }
-    // If the LEDs have completed their fade to black
-    if(cbr > 1 && level == 0) {
-        gpio_init_mask(0b1111);
-        gpio_set_dir_out_masked(0b1111);
-        gpio_put_masked(0b1111, 0);
-        return 0;
-    };
-    async_led_step++;
-    add_alarm_in_ms(2, alarm_power_on_leds, NULL, false);
-    return 0;
-}
-void power_on_leds() {
-    pwm_config config = pwm_get_default_config();
-    pwm_config_set_clkdiv(&config, clock_get_hz(clk_sys) / 1024.0f);
-    pwm_config_set_wrap(&config, 256);
-    for(unsigned i = 0u; i < 4; i++) {
-        gpio_set_function(led_gpios[i], GPIO_FUNC_PWM);
-        pwm_init(pwm_gpio_to_slice_num(led_gpios[i]), &config, true);
-    }
-    async_led_step = 10;
-    add_alarm_in_ms(0, alarm_power_on_leds, NULL, true);
-}
-*/
 
 static void __attribute__((constructor)) powman_startup(void) {
     setup_gpio(false);
