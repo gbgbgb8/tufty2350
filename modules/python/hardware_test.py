@@ -1,13 +1,16 @@
-import network
-import tufty2350
-from machine import Pin, Timer, ADC, I2C
-import time
-from pcf85063a import PCF85063A
-import powman
 import os
+import time
+
+import network
+import powman
+import st7789
+from machine import ADC, I2C, Pin, Timer
+from pcf85063a import PCF85063A
+from picovector import Font, brushes, screen, shapes
+
+display = st7789.ST7789()
 
 """
-
 Hardware Error Codes:
 
 E1 - Wireless scan fail - unable to detect networks.
@@ -20,19 +23,21 @@ E7 - VBAT SENSE reading was out of range
 E8 - SW_POWER_EN function test failed
 E10 - MAC Address invalid
 E11 - Time out during button test
+E12 - Light sensor reading out of range
+E14 - Missing secrets file for network connection
+E15 - Failed to connect to network
+E17 - Failed to start CYW43 (RM2 Module)
 
 """
 
-display = tufty2350.Tufty2350()
+WHITE = brushes.color(255, 255, 255)
+BLACK = brushes.color(0, 0, 0)
+DARK_BLUE = brushes.color(0, 100, 150)
+DARK_RED = brushes.color(150, 0, 0)
+DARK_GREEN = brushes.color(0, 200, 0)
+DARK_RED = brushes.color(150, 0, 0)
 
-WHITE = display.create_pen(255, 255, 255)
-BLACK = display.create_pen(0, 0, 0)
-DARK_BLUE = display.create_pen(0, 100, 150)
-DARK_RED = display.create_pen(150, 0, 0)
-DARK_GREEN = display.create_pen(0, 200, 0)
-DARK_RED = display.create_pen(150, 0, 0)
-
-WIDTH, HEIGHT = display.get_bounds()
+WIDTH, HEIGHT = 160, 120
 
 CL = [Pin(0, Pin.OUT), Pin(1, Pin.OUT),
       Pin(2, Pin.OUT), Pin(3, Pin.OUT)]
@@ -50,6 +55,59 @@ b = Pin.board.BUTTON_B
 c = Pin.board.BUTTON_C
 home = Pin.board.BUTTON_HOME
 power = Pin.board.POWER_EN
+LIGHT_SENSOR = ADC(Pin.board.LIGHT_SENSE)
+
+# Beacon Constants
+ADDRESS = 0x45      # Make sure this matches the address used for the event
+BURST = 3
+BURST_DELAY = 0.01
+SILENCE_DELAY = 0.05
+
+monasans = Font.load("/system/assets/fonts/MonaSans-Medium.af")
+screen.font = monasans
+
+TEXT_SIZE = 14
+screen.antialias = 4
+
+
+def get_light():
+    return LIGHT_SENSOR.read_u16()
+
+
+def wrap_and_measure(image, text, size, max_width):
+    result = []
+
+    for line in text.splitlines():
+        # if max_width is specified then perform word wrapping
+        if max_width:
+            # setup a start and end cursor to traverse the text
+            start, end = 0, 0
+            while True:
+                # search for the next space
+                end = line.find(" ", end)
+                if end == -1:
+                    end = len(line)
+
+                # measure the text up to the space
+                width, _ = image.measure_text(line[start:end], size)
+                if width > max_width:
+                    # line exceeded max length
+                    end = line.rfind(" ", start, end)
+                    result.append((line[start:end], width))
+                    start = end + 1
+                elif end == len(line):
+                    # reached the end of the string
+                    result.append((line[start:end], width))
+                    break
+
+                # step past the last space
+                end += 1
+        else:
+            # no wrapping needed, just return the original line with its width
+            width, _ = image.measure_text(line, size)
+            result.append((line, width))
+
+    return result
 
 
 class Tests:
@@ -62,6 +120,7 @@ class Tests:
 
         self.wlan = network.WLAN(network.WLAN.IF_STA)
         self.wlan.active(True)
+        self.mac = self.wlan.config("mac")
 
         sw_int.irq(self.btn_handler)
 
@@ -82,29 +141,32 @@ class Tests:
         self.vendor = "28:CD:C1"
 
         # a dict to store the button name, state and label location on screen
-        self.buttons = {"A": [False, (50, 215)], "B": [False, (148, 215)],
-                        "C": [False, (249, 215)], "UP": [False, (WIDTH - 25, 57)],
-                        "DOWN": [False, (WIDTH - 25, 157)], "HOME": [False, (WIDTH // 2 - 15, 10)]}
+        self.buttons = {"A": [False, (24, 107)], "B": [False, (73, 107)],
+                        "C": [False, (123, 107)], "UP": [False, (WIDTH - 13, 30)],
+                        "DOWN": [False, (WIDTH - 13, 82)], "HOME": [False, (WIDTH // 2 - 7, 5)]}
 
     def test_wireless(self):
-        if self.wifi_pass is None:
-            mac = ":".join([f"{b:02X}" for b in self.wlan.config("mac")])[:8]
-            results = self.wlan.scan()
+        try:
+            if self.wifi_pass is None:
+                data = ":".join([f"{b:02X}" for b in self.mac])
+                print(self.wlan.config("mac"))
+                results = self.wlan.scan()
 
-            if len(results) == 0:
-                raise Exception("E1")
+                if len(results) == 0:
+                    raise Exception("E1")
 
-            if mac != self.vendor:
-                raise Exception("E10")
+                if data[:8] != self.vendor:
+                    raise Exception("E10")
 
-            self.wifi_pass = True
+                self.wifi_pass = True
+        except OSError:
+            raise Exception("E17") from None
 
     def display_error(self, error):
-
-        display.set_pen(DARK_RED)
-        display.clear()
-        display.set_pen(WHITE)
-        display.text(str(error), 100, 75, WIDTH, 12)
+        screen.brush = DARK_RED
+        screen.clear()
+        screen.brush = WHITE
+        screen.text(str(error), 50, 16, TEXT_SIZE * 4)
         display.update()
 
     def test_buttons(self):
@@ -129,6 +191,11 @@ class Tests:
         if voltage > 4.2 or voltage < 3.6:
             raise Exception("E7")
 
+    def test_light(self):
+        reading = get_light()
+        if reading < 100 or reading > 2000:
+            raise Exception("E12")
+
     # Toggle the case lights on the back of the badge
     def cl_toggle(self, _t):
         for led in CL:
@@ -149,7 +216,8 @@ class Tests:
         self.clear_flag()
 
         # Time to sleep now!
-        powman.sleep()
+        # This mode disables all front buttons to stop the unit waking in transit.
+        powman.shipping_mode()
 
     def run(self):
 
@@ -187,6 +255,8 @@ class Tests:
             if self.rtc_pass is False:
                 raise Exception("E4")
 
+            self.test_light()
+
             button_timeout = time.time()
             while True:
                 if time.time() - button_timeout > 10:
@@ -213,11 +283,15 @@ class Tests:
 
         # The test has passed now, we'll just stay here a while.
         while True:
-            display.set_pen(DARK_GREEN)
-            display.clear()
-            display.set_pen(WHITE)
-            display.text("PASS", 30, 70, WIDTH, 12)
-            display.text("Press B to sleep.", 30, 150, WIDTH, 2)
+            screen.brush = DARK_GREEN
+            screen.clear()
+            screen.brush = WHITE
+            screen.text("PASS", 30, -10, TEXT_SIZE * 3)
+            text_lines = wrap_and_measure(screen, "Press B to sleep", TEXT_SIZE - 1, 150)
+            y = 60
+            for line, _width in text_lines:
+                screen.text(line, 5, y, TEXT_SIZE - 1)
+                y += 12
             display.update()
             time.sleep(0.5)
 
@@ -249,10 +323,14 @@ class Tests:
         start_time = time.time()
 
         while True:
-            display.set_pen(DARK_BLUE)
-            display.clear()
-            display.set_pen(WHITE)
-            display.text("< Remove USB to continue", 5, 104, WIDTH, 3)
+            screen.brush = DARK_BLUE
+            screen.clear()
+            screen.brush = WHITE
+            text_lines = wrap_and_measure(screen, "< Remove USB to continue.", TEXT_SIZE, 150)
+            y = 50
+            for line, _width in text_lines:
+                screen.text(line, 5, y, TEXT_SIZE)
+                y += 15
             display.update()
             # Time out to catch the user not removing the USB
             # Or to end the test if there's a failure on VBUS_DETECT
@@ -270,22 +348,25 @@ class Tests:
 
     def draw(self):
         # Clear screen and display title
-        display.set_pen(DARK_BLUE)
-        display.clear()
-        display.set_pen(WHITE)
+        screen.brush = DARK_BLUE
+        screen.clear()
+        screen.brush = WHITE
 
-        display.text("Press all face buttons + HOME", 10, 110, WIDTH, 2)
+        text_lines = wrap_and_measure(screen, "Press all face buttons + HOME", TEXT_SIZE, 150)
+        y = 45
+        for line, _width in text_lines:
+            screen.text(line, 5, y, TEXT_SIZE)
+            y += 15
 
         # Draw button presses
         for button in sorted(self.buttons):
             pressed = self.buttons[button][0]
             if not pressed:
                 x, y = self.buttons[button][1]
-                display.rectangle(x, y, 20, 20)
+                screen.draw(shapes.rectangle(x, y, 10, 10))
 
         display.update()
 
 
 t = Tests()
-
 t.run()
