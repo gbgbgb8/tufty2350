@@ -2,6 +2,7 @@
 
 #include <cstdlib>
 #include <math.h>
+#include <string.h>
 
 #include "hardware/spi.h"
 #include "hardware/dma.h"
@@ -36,7 +37,7 @@ namespace pimoroni {
     // pio stuff
     PIO parallel_pio = pio1;
     uint32_t startup_hz = 0;
-    const uint32_t max_pio_clk = 40 * MHZ;
+    const uint32_t max_pio_clk = 45 * MHZ;
 
     // Regular commands
     uint parallel_sm;
@@ -108,13 +109,18 @@ namespace pimoroni {
 
       st_dma = dma_claim_unused_channel(true);
       dma_channel_config config = dma_channel_get_default_config(st_dma);
+      channel_config_set_read_increment(&config, true);
       channel_config_set_transfer_data_size(&config, DMA_SIZE_8);
       channel_config_set_bswap(&config, false);
       channel_config_set_dreq(&config, pio_get_dreq(parallel_pio, parallel_sm, true));
       dma_channel_configure(st_dma, &config, &parallel_pio->txf[parallel_sm], NULL, 0, false);
 
+      // Configure the DMA *not* to increment the read address at first
+      // this lets us clear the display to black by firing out the first address
+      // from the back buffer... avoiding a memset over the buffer.
       pd_st_dma = dma_claim_unused_channel(true);
       dma_channel_config pd_config = dma_channel_get_default_config(pd_st_dma);
+      channel_config_set_read_increment(&pd_config, false);
       channel_config_set_transfer_data_size(&pd_config, DMA_SIZE_16);
       channel_config_set_bswap(&pd_config, false);
       channel_config_set_dreq(&pd_config, pio_get_dreq(parallel_pio, parallel_pd_sm, true));
@@ -152,12 +158,13 @@ namespace pimoroni {
     void update();
     void set_backlight(uint8_t brightness);
     uint32_t *get_framebuffer();
+    void command(uint8_t command, size_t len = 0, const char *data = NULL);
 
   private:
     void init();
+    void write_buffer_async();
     void write_blocking_parallel(const uint8_t *src, size_t len);
     void write_blocking_parallel_pixel_doubled(const uint8_t *src, size_t len);
-    void command(uint8_t command, size_t len = 0, const char *data = NULL);
   };
 
 }

@@ -20,9 +20,11 @@ namespace pimoroni {
     SWRESET   = 0x01,
     TEOFF     = 0x34,
     TEON      = 0x35,
+    STE       = 0x44,
     MADCTL    = 0x36,
     COLMOD    = 0x3A,
     RAMCTRL   = 0xB0,
+    RGBCTRL   = 0xB1,
     GCTRL     = 0xB7,
     VCOMS     = 0xBB,
     LCMCTRL   = 0xC0,
@@ -31,6 +33,7 @@ namespace pimoroni {
     VDVS      = 0xC4,
     FRCTRL2   = 0xC6,
     PWCTRL1   = 0xD0,
+    GATESEL   = 0xD6, 
     PORCTRL   = 0xB2,
     GMCTRP1   = 0xE0,
     GMCTRN1   = 0xE1,
@@ -67,13 +70,14 @@ namespace pimoroni {
     sleep_ms(150);
 
     // Common init
-    command(reg::TEON);  // enable frame sync signal if used
     command(reg::COLMOD,    1, "\x05");  // 16 bits per pixel
 
+    // both started as 0x0c 0x0c
     command(reg::PORCTRL, 5, "\x0c\x0c\x00\x33\x33");
+    //command(reg::RGBCTRL, 3, "\x40\x02\x14");
     command(reg::LCMCTRL, 1, "\x2c");
     command(reg::VDVVRHEN, 1, "\x01");
-    command(reg::VRHS, 1, "\x12");
+    command(reg::VRHS, 1, "\x0f");
     command(reg::VDVS, 1, "\x20");
     command(reg::PWCTRL1, 2, "\xa4\xa1");
     command(reg::FRCTRL2, 1, "\x0f");
@@ -86,19 +90,18 @@ namespace pimoroni {
 
     // 320 x 240
     command(reg::GCTRL, 1, "\x35");
-    command(reg::VCOMS, 1, "\x1f");
-    command(reg::GMCTRP1, 14, "\xD0\x08\x11\x08\x0C\x15\x39\x33\x50\x36\x13\x14\x29\x2D");
-    command(reg::GMCTRN1, 14, "\xD0\x08\x10\x08\x06\x06\x39\x44\x51\x0B\x16\x14\x2F\x31");
+    command(reg::VCOMS, 1, "\x1b");
+    command(reg::GMCTRP1, 14, "\xF0\x00\x06\x04\x05\x05\x31\x44\x48\x36\x12\x12\x2B\x34");
+    command(reg::GMCTRN1, 14, "\xF0\x0B\x0F\x0F\x0D\x26\x31\x43\x47\x38\x14\x14\x2C\x32");
 
     command(reg::INVON);   // set inversion mode
     command(reg::SLPOUT);  // leave sleep mode
-    command(reg::DISPON);  // turn display on
 
     sleep_ms(100);
 
-    uint8_t madctl = MADCTL::ROW_ORDER | MADCTL::SWAP_XY | MADCTL::SCAN_ORDER;
-    uint16_t caset[2] = {0, 319};
-    uint16_t raset[2] = {0, 239};
+    uint8_t madctl = MADCTL::ROW_ORDER; //MADCTL::ROW_ORDER | MADCTL::SWAP_XY | MADCTL::SCAN_ORDER;
+    uint16_t caset[2] = {0, 239};
+    uint16_t raset[2] = {0, 319};
 
     // Byte swap the 16bit rows/cols values
     caset[0] = __builtin_bswap16(caset[0]);
@@ -110,13 +113,25 @@ namespace pimoroni {
     command(reg::RASET,  4, (char *)raset);
     command(reg::MADCTL, 1, (char *)&madctl);
 
-    update();
+    backbuffer[0] = 0;
+    write_buffer_async(); // Clear display to black
 
     dma_channel_wait_for_finish_blocking(pd_st_dma);
     while(!pio_sm_is_tx_fifo_empty(parallel_pio, parallel_pd_sm))
       ;
 
-    set_backlight(255); // Turn backlight on now surprises have passed
+    // Reconfigure the pixel-double DMA to enable read increment
+    dma_channel_config pd_config = dma_channel_get_default_config(pd_st_dma);
+    channel_config_set_read_increment(&pd_config, true);
+    channel_config_set_transfer_data_size(&pd_config, DMA_SIZE_16);
+    channel_config_set_bswap(&pd_config, false);
+    channel_config_set_dreq(&pd_config, pio_get_dreq(parallel_pio, parallel_pd_sm, true));
+    dma_channel_configure(pd_st_dma, &pd_config, &parallel_pio->txf[parallel_pd_sm], NULL, 0, false);
+
+    command(reg::TEON, 1, "\x00");  // enable frame sync signal
+    command(reg::STE, 2, "\x00\x00");
+    command(reg::DISPON);  // turn display on
+    set_backlight(230); // Turn backlight on now surprises have passed, 180 = about half perceptual brightness
   }
 
   uint32_t *ST7789::get_framebuffer() {
@@ -147,9 +162,25 @@ namespace pimoroni {
     gpio_put(cs, 1);
   }
 
-  void ST7789::update() {
+  void ST7789::write_buffer_async() {
+    // Block waiting for the vsync signal
+    gpio_put(dc, 0);
+    gpio_set_dir(dc, GPIO_IN);
+    gpio_set_pulls(dc, true, false);
+    while (gpio_get(dc)) {
+    }
+    gpio_set_pulls(dc, false, false);
+    gpio_set_dir(dc, GPIO_OUT);
     uint8_t cmd = reg::RAMWR;
+    gpio_put(dc, 0); // command mode
+    gpio_put(cs, 0);
+    write_blocking_parallel(&cmd, 1);
+    gpio_put(dc, 1); // data mode
+    dma_channel_set_trans_count(pd_st_dma, 160 * 240, false);
+    dma_channel_set_read_addr(pd_st_dma, &backbuffer, true);
+  }
 
+  void ST7789::update() {
     dma_channel_wait_for_finish_blocking(pd_st_dma);
     while(!pio_sm_is_tx_fifo_empty(parallel_pio, parallel_pd_sm))
       ;
@@ -164,55 +195,21 @@ namespace pimoroni {
     }
 
     uint8_t *src = (uint8_t *)framebuffer;
-    uint16_t *dst = (uint16_t *)backbuffer;
-    for(int y = 0; y < height * 2; y+=2) {
-      for(int x = 0; x < width; x++) {
-        /*
-        *dst = (src[0] & 0b11111000) << 8;
-        *dst |= (src[1] & 0b11111100) << 3;
-        *dst |= src[2] >> 3;
-        *(dst + width) = *dst;
-        */
-        *(dst + width) = *dst = ((src[0] & 0b11111000) << 8) | ((src[1] & 0b11111100) << 3) | (src[2] >> 3);
-        dst++;
+    //uint16_t *dst = (uint16_t *)backbuffer;
+    for(int y = 0; y < height; y++) {
+      for(int x = 0; x < width * 2; x += 2) {
+        //*(dst + height) = *dst = ((src[0] & 0b11111000) << 8) | ((src[1] & 0b11111100) << 3) | (src[2] >> 3);
+        uint16_t pixel = ((src[0] & 0b11111000) << 8) | ((src[1] & 0b11111100) << 3) | (src[2] >> 3);
+        backbuffer[x * height + y] = pixel;
+        backbuffer[x * height + y + height] = pixel;
+        //dst++;
         src += 4;
       }
       // Skip the vertically pixel-doubled row we set above
-      dst += width;
+      //dst += width;
     }
 
-    gpio_put(dc, 0); // command mode
-    gpio_put(cs, 0);
-    write_blocking_parallel(&cmd, 1);
-    gpio_put(dc, 1); // data mode
-    dma_channel_set_trans_count(pd_st_dma, 160 * 240, false);
-    dma_channel_set_read_addr(pd_st_dma, &backbuffer, true);
-
-    //dma_channel_set_trans_count(pd_st_dma, width * height, false);
-    //dma_channel_set_read_addr(pd_st_dma, &framebuffer, true);
-
-    /*uint8_t *src = (uint8_t *)framebuffer;
-    for(int y = 0; y < height; y++) {
-      uint16_t *dst = linebuffer;
-      for(int x = 0; x < width; x++) {
-        *dst = ((src[0] & 0b11111000) << 8) | ((src[1] & 0b11111100) << 3) | (src[2] >> 3);
-        *(dst + width) = *dst;
-        dst++;
-        src += 4;
-      }
-      dma_channel_wait_for_finish_blocking(pd_st_dma);
-      dma_channel_set_trans_count(pd_st_dma, width * 2, false);
-      dma_channel_set_read_addr(pd_st_dma, &linebuffer, true);
-    }
-
-    dma_channel_wait_for_finish_blocking(pd_st_dma);*/
-
-    // This may cause a race between PIO and the
-    // subsequent chipselect de-assert for the last pixel
-    /*while(!pio_sm_is_tx_fifo_empty(parallel_pio, parallel_pd_sm))
-      ;
-
-    gpio_put(cs, 1);*/
+    write_buffer_async();
   }
 
   void ST7789::set_backlight(uint8_t brightness) {

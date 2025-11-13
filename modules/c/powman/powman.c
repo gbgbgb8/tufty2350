@@ -35,6 +35,14 @@ uint8_t powman_get_wake_reason(void) {
     return (powman_hw->last_swcore_pwrup & 0x7f) | (powman_wake_with_doubletap ? POWMAN_DOUBLETAP : 0);
 }
 
+bool powman_wake_reset(void) {
+    return powman_hw->chip_reset & POWMAN_CHIP_RESET_HAD_RUN_LOW_BITS;
+}
+
+bool powman_wake_watchdog(void) {
+    return watchdog_caused_reboot();
+}
+
 uint32_t powman_get_user_switches(void) {
     return user_button_state;
 }
@@ -112,6 +120,8 @@ void pcf85063_wakeup_init(uint8_t period) {
 
 void powman_init() {
     uint64_t abs_time_ms = 1746057600000; // 2025/05/01 - Milliseconds since epoch
+
+    clear_double_tap_flag();
 
     // Run everything from pll_usb pll and stop pll_sys
     set_sys_clock_48mhz();

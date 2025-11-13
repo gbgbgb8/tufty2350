@@ -9,7 +9,8 @@
 
 using namespace pimoroni;
 
-ST7789 *display = nullptr;
+static ST7789 *display = nullptr;
+static uint32_t display_refcount = 0;
 
 #define MP_OBJ_TO_PTR2(o, t) ((t *)(uintptr_t)(o))
 #define m_new_class(cls, ...) new(m_new(cls, 1)) cls(__VA_ARGS__)
@@ -27,20 +28,44 @@ typedef struct _ST7789_obj_t {
 
 mp_obj_t st7789_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *all_args) {
     _ST7789_obj_t *self = mp_obj_malloc_with_finaliser(ST7789_obj_t, &ST7789_type);
-    self->display = display = m_new_class(ST7789);
+    if(!display) {
+        display = m_new_class(ST7789);
+    }
+    self->display = display;
+    display_refcount++;
     return MP_OBJ_FROM_PTR(self);
 }
 
 mp_obj_t st7789___del__(mp_obj_t self_in) {
-    _ST7789_obj_t *self = (_ST7789_obj_t*)MP_OBJ_TO_PTR(self_in);
-    m_del_class(ST7789, display);
-    self->display = display = nullptr;
+    display_refcount--;
+    if(display_refcount == 0) {
+        m_del_class(ST7789, display);
+        display = nullptr;
+    }
     return mp_const_none;
 }
 
 mp_obj_t st7789_update(mp_obj_t self_in) {
     (void)self_in;
     display->update();
+    return mp_const_none;
+}
+
+mp_obj_t st7789_command(mp_obj_t self_in, mp_obj_t reg_in, mp_obj_t data_in) {
+    (void)self_in;
+    uint8_t reg = mp_obj_get_int(reg_in);
+
+    if(mp_obj_is_type(data_in, &mp_type_tuple)) {
+        mp_obj_tuple_t *tuple = (mp_obj_tuple_t *)MP_OBJ_TO_PTR(data_in);
+        uint8_t data[tuple->len] = {0};
+        for(unsigned i = 0u; i < tuple->len; i++) {
+            data[i] = mp_obj_get_int(tuple->items[i]);
+        }
+        display->command(reg, tuple->len, (const char *)data);
+        return mp_const_none;
+    }
+
+    display->command(reg, 0, NULL);
     return mp_const_none;
 }
 
