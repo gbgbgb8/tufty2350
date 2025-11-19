@@ -1,14 +1,15 @@
 import math
-from badgeware import screen, brushes, SpriteSheet, shapes, PixelFont, io
+from badgeware import screen, brushes, SpriteSheet, shapes, PixelFont, io, Image
 
 # load user interface sprites
 icons = SpriteSheet("assets/icons.png", 4, 1)
 arrows = SpriteSheet("assets/arrows.png", 3, 1)
+background_image = Image.load("/system/assets/squirrel-sprites/background.png")
 
 # load in the font - font sheet generated from
 screen.font = PixelFont.load("/system/assets/fonts/ark.ppf")
 
-# brushes to match monas stats
+# brushes to match pets stats
 stats_brushes = {
     "happy": brushes.color(141, 39, 135),
     "hunger": brushes.color(53, 141, 39),
@@ -16,7 +17,7 @@ stats_brushes = {
     "warning": brushes.color(255, 0, 0, 200)
 }
 
-# icons to match monas stats
+# icons to match pets stats
 stats_icons = {
     "happy": icons.sprite(0, 0),
     "hunger": icons.sprite(1, 0),
@@ -27,75 +28,22 @@ stats_icons = {
 outline_brush = brushes.color(20, 30, 40, 150)
 outline_brush_bold = brushes.color(20, 30, 40, 200)
 
+
 # draw the background scenery
-def background(mona):
-    floor_y, mona_x = mona.position()[1] - 5, mona.position()[0]
+def background(pet):
 
-    # fill the wall background
-    screen.brush = brushes.color(30, 50, 70)
-    screen.draw(shapes.rectangle(0, 0, 160, floor_y))
+    screen.blit(background_image, 0, 0)
 
-    # animate the wallpaper
-    screen.brush = brushes.color(30, 40, 20)
-    mx = (mona_x - 80) / 2
-    for y in range(8):
-        for x in range(19):
-            if (x + y) % 2 == 0:
-                xo = math.sin(io.ticks / 1000) * 2
-                yo = math.cos(io.ticks / 1000) * 2
-                screen.draw(shapes.rectangle(
-                    x * 10 - mx, y * 10 - 3, xo + 4, yo + 4))
-
-    # draw the picture frame
-    px = 140 - mx
-    screen.brush = brushes.color(80, 90, 100, 100)
-    screen.draw(shapes.line(px + 2, 20 + 2, px + 20, 15, 1))
-    screen.draw(shapes.line(px + 35 + 2, 20 + 2, px + 20, 15, 1))
-    screen.brush = brushes.color(30, 40, 50, 100)
-    screen.draw(shapes.rectangle(px + 1, 20 + 1, 38, 28))
-    screen.brush = brushes.color(50, 40, 30, 255)
-    screen.draw(shapes.rectangle(px, 20, 38, 28))
-    screen.brush = brushes.color(120, 130, 140, 255)
-    screen.draw(shapes.rectangle(px + 2, 20 + 2, 38 - 4, 28 - 4))
-    portrait = mona._animations["heart"].frame(7)  # noqa: SLF001
-    screen.blit(portrait, px + 8, 20)
-
-    # draw the skirting board
-    screen.brush = brushes.color(80, 90, 100, 150)
-    screen.draw(shapes.rectangle(0, floor_y - 5, 160, 5))
-    screen.draw(shapes.rectangle(0, floor_y - 4, 160, 1))
-
-    # draw the outlet
-    screen.blit(icons.sprite(3, 0), px - 20, floor_y - 18)
-
-    # draw the floor
-    floor = screen.window(0, floor_y, 160, 120)  # clip drawing to floor area
-
-    # draw background fill
-    floor.brush = brushes.color(30, 40, 20)
-    floor.draw(shapes.rectangle(0, 0, 160, 120 - floor_y))
-
-    # draw angled "floorboard" lines centered on mona
-    floor.brush = brushes.color(100, 200, 100, 25)
-    for i in range(0, 300, 10):
-        x1 = i - ((mona_x - i) * 1.5)
-        x2 = i - ((mona_x - i) * 2)
-        line = shapes.line(x1, 5, x2, 19, 2)
-        floor.draw(line)
 
 # draw the title banner
-
-
 def draw_header():
     screen.brush = outline_brush
     screen.draw(shapes.rounded_rectangle(40, -5, 160 - 80, 18, 3))
 
     screen.brush = brushes.color(255, 255, 255)
-    center_text("mona pet", 0)
+    center_text("Tufty", 0)
 
 # draw a user action button with button name and label
-
-
 def draw_button(x, y, label, active):
     width = 50
 

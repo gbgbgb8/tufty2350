@@ -17,7 +17,7 @@ import ui
 # - what would mona do...?
 apps = [
     ("christmas countdown", "christmas"),
-    ("mona pet", "monapet"),
+    ("badge pet", "badgepet"),
     ("monasketch", "sketch"),
     ("flappy mona", "flappy"),
     ("gallery", "gallery"),
