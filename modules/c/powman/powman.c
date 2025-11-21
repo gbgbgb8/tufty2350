@@ -212,6 +212,18 @@ void powman_init() {
     on_state = P0_3;
 }
 
+bool __no_inline_not_in_flash_func(psram_cs1_pullup_check)(void) {
+    uint32_t intr_stash = save_and_disable_interrupts();
+    gpio_init(BW_PSRAM_CS);                         // Init to SIO / IN
+    gpio_set_pulls(BW_PSRAM_CS, false, true);       // Pull down
+    sleep_us(100);
+    bool pin_state = gpio_get(BW_PSRAM_CS) == 1;    // Check if pin is strongly pulled up
+    gpio_set_pulls(BW_PSRAM_CS, false, false);      // Disable pulls
+    gpio_set_function(BW_PSRAM_CS, GPIO_FUNC_XIP_CS1);  // Return the CS pin to the correct function
+    restore_interrupts(intr_stash);
+    return pin_state;
+}
+
 // Initiate power off
 int __no_inline_not_in_flash_func(powman_off)(void) {
     // Set power states
