@@ -171,6 +171,7 @@ animations = {
   "dig":      4,
   "default":  6,
   "notify":   6,
+  "dead":     6
 
 }
 
