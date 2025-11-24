@@ -10,17 +10,18 @@ Controls:
 * B = Continue (once the current level is complete)
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, "/system/apps/random_maze")
 os.chdir("/system/apps/random_maze")
 
-from badgeware import io, run, WIDTH, HEIGHT
 import gc
 import random
 import time
 from collections import namedtuple
+
+from badgeware import HEIGHT, WIDTH, io, run
 
 # Setup for the display
 font = PixelFont.load("/system/assets/fonts/nope.ppf")
@@ -38,7 +39,6 @@ BACKGROUND = brushes.color(60, 57, 169)
 PATH = brushes.color((227 + 60) // 2, (231 + 57) // 2, (110 + 169) // 2)
 
 CX, CY = WIDTH / 2, HEIGHT / 2
-
 
 # Gameplay Constants
 Position = namedtuple("Position", ("x", "y"))
@@ -302,10 +302,6 @@ def draw_maze():
 
     # Draw the player
     player.draw(screen)
-
-    # Display the level
-    screen.brush = BLACK
-    screen.text(f"Lvl: {level}", 2, 2)
 
 
 def init():
