@@ -40,13 +40,6 @@ PATH = brushes.color((227 + 60) // 2, (231 + 57) // 2, (110 + 169) // 2)
 CX, CY = WIDTH / 2, HEIGHT / 2
 
 
-def show_message(text):
-    display.set_pen(BACKGROUND)
-    display.clear()
-    display.set_pen(WALL)
-    display.text(f"{text}", 5, 10, WIDTH, 2)
-
-
 # Gameplay Constants
 Position = namedtuple("Position", ("x", "y"))
 MIN_MAZE_WIDTH = 2
