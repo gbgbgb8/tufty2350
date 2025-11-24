@@ -12,7 +12,7 @@ CY = HEIGHT / 2
 
 state = {
     "current": 0,
-    "goal": 200
+    "goal": 2000
 }
 
 
