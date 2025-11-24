@@ -231,7 +231,6 @@ class Player(object):
         self.x = x
         self.y = y
         self.colour = colour
-        self.recent_input = False
 
     def position(self, x, y):
         self.x = x
@@ -239,27 +238,21 @@ class Player(object):
 
     def update(self, maze):
 
-        self.recent_input = False
-
-        if io.BUTTON_A in io.pressed and maze[self.y][self.x - 1] != 1:
+        if io.BUTTON_A in io.held and maze[self.y][self.x - 1] != 1:
             self.x -= 1
             time.sleep(MOVEMENT_SLEEP)
-            self.recent_input = True
 
-        elif io.BUTTON_C in io.pressed and maze[self.y][self.x + 1] != 1:
+        elif io.BUTTON_C in io.held and maze[self.y][self.x + 1] != 1:
             self.x += 1
             time.sleep(MOVEMENT_SLEEP)
-            self.recent_input = True
 
-        elif io.BUTTON_UP in io.pressed and maze[self.y - 1][self.x] != 1:
+        elif io.BUTTON_UP in io.held and maze[self.y - 1][self.x] != 1:
             self.y -= 1
             time.sleep(MOVEMENT_SLEEP)
-            self.recent_input = True
 
-        elif io.BUTTON_DOWN in io.pressed and maze[self.y + 1][self.x] != 1:
+        elif io.BUTTON_DOWN in io.held and maze[self.y + 1][self.x] != 1:
             self.y += 1
             time.sleep(MOVEMENT_SLEEP)
-            self.recent_input = True
 
         maze[self.y][self.x] = 2
 
@@ -352,6 +345,9 @@ def update():
         screen.brush = PLAYER
         screen.draw(shapes.rounded_rectangle(10, CY - 24, WIDTH - 20, 50, 5))
 
+        screen.brush = BLACK
+        screen.draw(shapes.rounded_rectangle(10, CY - 24, WIDTH - 20, 50, 5).stroke(2))
+
         # Draw text
         screen.brush = BLACK
         screen.text(f"{text_1_string}", text_1_location[0], text_1_location[1])
@@ -362,7 +358,6 @@ def update():
             level += 1
             build_maze()
             player.position(*start)
-            player.recent_input = True
 
 
 def on_exit():
