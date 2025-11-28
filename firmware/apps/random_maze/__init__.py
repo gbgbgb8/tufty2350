@@ -52,7 +52,8 @@ for dir in animations.keys():
 
 # Colour Constants
 BLACK = brushes.color(0, 0, 0)
-PLAYER = brushes.color(227, 231, 110, 125)
+WHITE = brushes.color(255, 255, 255)
+WINDOW_COLOR = brushes.color(227, 231, 110, 125)
 WALL = brushes.color(127, 125, 244)
 BACKGROUND = Image.load("assets/background.png")
 PATH = brushes.color((227 + 60) // 2, (231 + 57) // 2, (110 + 169) // 2)
@@ -79,16 +80,6 @@ level = 0                                       # The current "level" the player
 
 player = None
 builder = None
-
-# Store text strings and calculate centre location
-text_1_string = "Maze Complete!"
-text_1_size = screen.measure_text(text_1_string)[0]
-
-text_2_string = "Press B to continue"
-text_2_size = screen.measure_text(text_2_string)[0]
-
-text_1_location = ((WIDTH // 2) - (text_1_size // 2), CY - 15)
-text_2_location = ((WIDTH // 2) - (text_2_size // 2), CY + 5)
 
 
 # Classes
@@ -256,10 +247,9 @@ class MazeBuilder:
 
 
 class Player(object):
-    def __init__(self, x, y, colour):
+    def __init__(self, x, y):
         self.x = x
         self.y = y
-        self.colour = colour
         self.last_move = io.ticks
 
         self.current_animation = animations["right"]
@@ -384,6 +374,25 @@ def intro():
         state = GameState.PLAYING
 
 
+def draw_complete_banner():
+    global level, complete
+
+    screen.brush = WINDOW_COLOR
+    screen.draw(shapes.rounded_rectangle(10, CY - 24, WIDTH - 20, 50, 5))
+
+    # Draw text
+    screen.font = font
+    screen.brush = WHITE
+    center_text("Maze Complete!", CY - 15)
+    center_text("Press B to continue", CY + 5)
+
+    if io.BUTTON_B in io.pressed:
+        complete = False
+        level += 1
+        build_maze()
+        player.position(*start)
+
+
 def init():
     global builder, player
     # Create the maze builder and build the first maze and put
@@ -391,7 +400,7 @@ def init():
     build_maze()
 
     # Create the player object
-    player = Player(*start, PLAYER)
+    player = Player(*start)
 
 
 def update():
@@ -413,24 +422,7 @@ def update():
                 complete = True
 
         if complete:
-            # Draw banner
-            screen.brush = PLAYER
-            screen.draw(shapes.rounded_rectangle(10, CY - 24, WIDTH - 20, 50, 5))
-
-            screen.brush = BLACK
-            screen.draw(shapes.rounded_rectangle(10, CY - 24, WIDTH - 20, 50, 5).stroke(2))
-
-            # Draw text
-            screen.font = font
-            screen.brush = BLACK
-            screen.text(f"{text_1_string}", text_1_location[0], text_1_location[1])
-            screen.text(f"{text_2_string}", text_2_location[0], text_2_location[1])
-
-            if io.BUTTON_B in io.pressed:
-                complete = False
-                level += 1
-                build_maze()
-                player.position(*start)
+            draw_complete_banner()
 
 
 def on_exit():
