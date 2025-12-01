@@ -383,7 +383,7 @@ def draw_complete_banner():
     # Draw text
     screen.font = font
     screen.brush = WHITE
-    center_text("Maze Complete!", CY - 15)
+    center_text(f"Level {level + 1} Complete!", CY - 15)
     center_text("Press B to continue", CY + 5)
 
     if io.BUTTON_B in io.pressed:
