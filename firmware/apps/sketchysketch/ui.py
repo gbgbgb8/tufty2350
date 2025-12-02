@@ -14,11 +14,11 @@ def draw_background():
 
     # draw the embossed gold logo
     screen.font = font
-    w, _ = screen.measure_text("Sketch")
+    w, _ = screen.measure_text("Sketchy Sketch")
     screen.brush = brushes.color(240, 210, 160)
-    screen.text("Sketch", 80 - (w / 2) - 1, -1)
+    screen.text("Sketchy Sketch", 80 - (w / 2) - 1, -1)
     screen.brush = brushes.color(190, 140, 80, 100)
-    screen.text("Sketch", 80 - (w / 2), 0)
+    screen.text("Sketchy Sketch", 80 - (w / 2), 0)
 
     # draw the canvas area grey background and screen shadows
     screen.brush = brushes.color(210, 210, 210)
