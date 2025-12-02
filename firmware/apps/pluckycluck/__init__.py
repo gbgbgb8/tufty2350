@@ -61,7 +61,7 @@ def intro():
 
     # draw title
     screen.font = large_font
-    center_text("FLAPPY CHICKEN", 38)
+    center_text("Plucky Cluck", 38)
 
     # blink button message
     if int(io.ticks / 500) % 2:

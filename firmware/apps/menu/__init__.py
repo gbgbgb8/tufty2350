@@ -23,7 +23,7 @@ apps = [
     ("Christmas Countdown", "christmas"),
     ("Snarky Sciuridae", "badgepet"),
     ("Sketchy Sketch", "sketch"),
-    ("Plucky Cluck", "flappy"),
+    ("Plucky Cluck", "pluckycluck"),
     ("Hydrate", "hydrate"),
     ("Bee Amaze'd", "bee_amazed"),
 ]
