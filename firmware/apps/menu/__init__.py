@@ -1,13 +1,17 @@
-import sys
 import os
+import sys
 
 sys.path.insert(0, "/system/apps/menu")
 os.chdir("/system/apps/menu")
 
 import math
-from badgeware import screen, PixelFont, Image, SpriteSheet, is_dir, file_exists, shapes, brushes, io, run
-from icon import Icon
+
 import ui
+from badgeware import (Image, PixelFont, SpriteSheet, brushes, file_exists, io,
+                       is_dir, run, screen, shapes)
+from icon import Icon
+
+# screen.antialias = Image.X4
 
 # define the list of installed apps
 #
@@ -16,12 +20,12 @@ import ui
 # - reorder them
 # - what would mona do...?
 apps = [
-    ("christmas countdown", "christmas"),
-    ("badge pet", "badgepet"),
-    ("monasketch", "sketch"),
-    ("flappy mona", "flappy"),
-    ("gallery", "gallery"),
-    ("badge", "badge"),
+    ("Christmas Countdown", "christmas"),
+    ("Snarky Sciuridae", "badgepet"),
+    ("Sketchy Sketch", "sketch"),
+    ("Plucky Cluck", "flappy"),
+    ("Hydrate", "hydrate"),
+    ("Bee Amaze'd", "bee_amazed"),
 ]
 
 mona = SpriteSheet("/system/assets/mona-sprites/mona-default.png", 11, 1)
@@ -37,7 +41,7 @@ for app in apps:
         if file_exists(f"/system/apps/{path}/icon.png"):
             x = len(icons) % 3
             y = math.floor(len(icons) / 3)
-            pos = (x * 48 + 33, y * 48 + 42)
+            pos = (x * 48 + 32, y * 48 + 42)
             sprite = Image.load(f"/system/apps/{path}/icon.png")
             icons.append(Icon(pos, name, len(icons), sprite))
 
@@ -61,6 +65,7 @@ def update():
         active += 3
     if io.BUTTON_B in io.pressed:
         return f"/system/apps/{apps[active][1]}"
+
     active %= len(icons)
 
     ui.draw_background()
@@ -75,9 +80,9 @@ def update():
     if Icon.active_icon:
         label = f"{Icon.active_icon.name}"
         w, _ = screen.measure_text(label)
-        screen.brush = brushes.color(211, 250, 55)
+        screen.brush = ui.phosphor
         screen.draw(shapes.rounded_rectangle(80 - (w / 2) - 4, 100, w + 8, 15, 4))
-        screen.brush = brushes.color(0, 0, 0, 150)
+        screen.brush = brushes.color(20, 40, 60)
         screen.text(label, 80 - (w / 2), 101)
 
     if alpha <= MAX_ALPHA:
@@ -86,6 +91,7 @@ def update():
         alpha += 30
 
     return None
+
 
 if __name__ == "__main__":
     run(update)
