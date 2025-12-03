@@ -23,6 +23,18 @@ const uint led_gpios[4] = {BW_LED_1, BW_LED_2, BW_LED_3, BW_LED_0};
 
 //#define DEBUG
 
+static inline bool double_tap_flag_is_set(void) {
+    return powman_hw->chip_reset & POWMAN_CHIP_RESET_DOUBLE_TAP_BITS;
+}
+
+static inline void set_double_tap_flag(void) {
+    powman_set_bits(&powman_hw->chip_reset, POWMAN_CHIP_RESET_DOUBLE_TAP_BITS);
+}
+
+static inline void clear_double_tap_flag(void) {
+    powman_clear_bits(&powman_hw->chip_reset, POWMAN_CHIP_RESET_DOUBLE_TAP_BITS);
+}
+
 uint8_t powman_get_wake_reason(void) {
     // 0 = chip reset, for the source of the last reset see POWMAN_CHIP_RESET
     // 1 = pwrup0 (GPIO interrupt 0)
@@ -120,6 +132,8 @@ void pcf85063_wakeup_init(uint8_t period) {
 
 void powman_init() {
     uint64_t abs_time_ms = 1746057600000; // 2025/05/01 - Milliseconds since epoch
+
+    clear_double_tap_flag();
 
     // Run everything from pll_usb pll and stop pll_sys
     set_sys_clock_48mhz();
@@ -300,18 +314,6 @@ int powman_off_for_ms(uint64_t duration_ms) {
     return powman_off_until_time(ms + duration_ms);
 }
 
-static inline bool double_tap_flag_is_set(void) {
-    return powman_hw->chip_reset & POWMAN_CHIP_RESET_DOUBLE_TAP_BITS;
-}
-
-static inline void set_double_tap_flag(void) {
-    powman_set_bits(&powman_hw->chip_reset, POWMAN_CHIP_RESET_DOUBLE_TAP_BITS);
-}
-
-static inline void clear_double_tap_flag(void) {
-    powman_clear_bits(&powman_hw->chip_reset, POWMAN_CHIP_RESET_DOUBLE_TAP_BITS);
-}
-
 static inline void setup_gpio(bool buttons_only) {
     // Init all button GPIOs
     gpio_init_mask(BW_SWITCH_MASK);
@@ -346,13 +348,12 @@ static inline void setup_gpio(bool buttons_only) {
     gpio_set_dir(BW_VBUS_DETECT, GPIO_IN);
     gpio_set_pulls(BW_VBUS_DETECT, false, false);
 
+    // Moved to RM2
     // Init the charge status detect
-    
-    /*
-    gpio_init(BW_CHARGE_STAT);
-    gpio_set_dir(BW_CHARGE_STAT, GPIO_IN);
-    gpio_set_pulls(BW_CHARGE_STAT, true, false);
-    */
+    // gpio_init(BW_CHARGE_STAT);
+    // gpio_set_dir(BW_CHARGE_STAT, GPIO_IN);
+    // gpio_set_pulls(BW_CHARGE_STAT, true, false);
+
     // Set up LEDs
     gpio_init_mask(0b1111);
     gpio_set_dir_out_masked(0b1111);
