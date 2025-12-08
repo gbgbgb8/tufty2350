@@ -58,6 +58,12 @@ WALL = brushes.color(127, 125, 244)
 BACKGROUND = Image.load("assets/background.png")
 PATH = brushes.color((227 + 60) // 2, (231 + 57) // 2, (110 + 169) // 2)
 
+
+screen.brush = brushes.color(0, 0, 0)
+
+# enable hi-res mode
+hires()
+
 CX, CY = screen.width / 2, screen.height / 2
 
 # Gameplay Constants
@@ -70,7 +76,6 @@ WALL_SHADOW = 1
 WALL_GAP = 1
 WALL_BITSHIFT = 4
 TEXT_SHADOW = 2
-MOVEMENT_SLEEP = 0.05
 DIFFICULT_SCALE = 0.5
 N, S, E, W = 1, 2, 4, 8
 
@@ -260,7 +265,7 @@ class Player(object):
 
     def update(self, maze):
 
-        if io.ticks - self.last_move > 45:
+        if io.ticks - self.last_move > 20:
             if io.BUTTON_A in io.held and maze[self.y][self.x - 1] < (1 << WALL_BITSHIFT):
                 maze[self.y][self.x] |= W
                 self.x -= 1
@@ -314,8 +319,8 @@ def build_maze():
                           screen.width // builder.grid_columns)
     wall_size = wall_separation - WALL_GAP
 
-    offset_x = (screen.height - (builder.grid_columns * wall_separation) + WALL_GAP) // 2
-    offset_y = (screen.width - (builder.grid_rows * wall_separation) + WALL_GAP) // 2
+    offset_x = (screen.width - (builder.grid_columns * wall_separation) + WALL_GAP) // 2
+    offset_y = (screen.height - (builder.grid_rows * wall_separation) + WALL_GAP) // 2
 
     start = Position(1, builder.grid_rows - 2)
     goal = Position(builder.grid_columns - 2, 1)
@@ -350,7 +355,7 @@ def shadow_text(text, x, y):
 
 def center_text(text, y):
     w, _ = screen.measure_text(text)
-    shadow_text(text, 80 - (w / 2), y)
+    shadow_text(text, screen.width / 2 - (w / 2), y)
 
 
 def intro():
@@ -359,16 +364,15 @@ def intro():
     image = animations["down"].frame(round(io.ticks / 100))
 
     screen.blit(BACKGROUND, 0, 0)
-    screen.scale_blit(image, (WIDTH / 2) - 16, 12, 32, 32)
+    screen.scale_blit(image, (screen.width / 2) - 16, CY - 50, 32, 32)
 
     # draw title
     screen.font = large_font
-    center_text("Bee a-maze'd!", 38)
-
+    center_text("Bee a-maze'd!", CY - 10)
     # blink button message
     if int(io.ticks / 500) % 2:
         screen.font = font
-        center_text("Press B to start", 68)
+        center_text("Press B to start", CY + 20)
 
     if io.BUTTON_B in io.pressed:
         state = GameState.PLAYING
@@ -378,7 +382,7 @@ def draw_complete_banner():
     global level, complete
 
     screen.brush = WINDOW_COLOR
-    screen.draw(shapes.rounded_rectangle(10, CY - 24, WIDTH - 20, 50, 5))
+    screen.draw(shapes.rounded_rectangle(10, CY - 24, screen.width - 20, 50, 5))
 
     # Draw text
     screen.font = font
