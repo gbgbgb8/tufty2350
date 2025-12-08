@@ -4,7 +4,7 @@ import os
 sys.path.insert(0, "/system/apps/badgepet")
 os.chdir("/system/apps/badgepet")
 
-from badgeware import clamp
+from badgeware import clamp, SpriteSheet
 import random
 import math
 
