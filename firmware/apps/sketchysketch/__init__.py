@@ -8,7 +8,7 @@ from badgeware import run
 import ui
 
 
-canvas = Image(0, 0, ui.canvas_area[2], ui.canvas_area[3])
+canvas = Image(ui.canvas_area[2], ui.canvas_area[3])
 cursor = (ui.canvas_area[2] / 2, ui.canvas_area[3] / 2)
 
 last_cursor_move = None
