@@ -1,0 +1,200 @@
+
+# Your apps directory
+APP_DIR = "/system/apps/tomato"
+
+import os
+import sys
+
+# Standalone bootstrap for finding app assets
+os.chdir(APP_DIR)
+
+# Standalone bootstrap for module imports
+sys.path.insert(0, APP_DIR)
+
+from badgeware import run
+import time
+
+# Centre points for the display
+CX = screen.width // 2
+CY = screen.height // 2
+
+BLACK = brushes.color(0, 0, 0)
+SHADOW = brushes.color(0, 0, 0, 100)
+
+screen.antialias = screen.X4
+
+small_font = PixelFont.load("/system/assets/fonts/winds.ppf")
+large_font = PixelFont.load("/system/assets/fonts/ignore.ppf")
+screen.font = small_font
+
+case_lights = [machine.Pin.board.CL0, machine.Pin.board.CL1, machine.Pin.board.CL2, machine.Pin.board.CL3]
+
+
+def shadow_text(text, x, y):
+    screen.brush = brushes.color(20, 40, 60, 100)
+    screen.text(text, x + 1, y + 1)
+    screen.brush = brushes.color(255, 255, 255)
+    screen.text(text, x, y)
+
+
+def center_text(text, y):
+    w, _ = screen.measure_text(text)
+    shadow_text(text, screen.width / 2 - (w / 2), y)
+
+
+class Tomato(object):
+    def __init__(self):
+
+        self.background = brushes.color(200, 50, 50)  # We'll use this one for the background.
+        self.foreground = brushes.color(255, 255, 255, 140)  # Slightly lighter for foreground elements.
+
+        # Time constants.
+        # Feel free to change these to ones that work better for you.
+        self.TASK = 25 * 60
+        self.SHORT = 10 * 60
+        self.LONG = 30 * 60
+
+        # How long the completion alert should be played (seconds)
+        self.alert_duration = 5
+        self.alert_start_time = 0
+        self.last_toggle = 0
+
+        self.is_break_time = False
+        self.start_time = 0
+        self.tasks_complete = 0
+        self.running = False
+        self.paused = False
+        self.time_elapsed = 0
+        self.current_timer = self.TASK
+
+        self.btn_pos = ((CX - 30), screen.height - 30)
+
+    def draw(self):
+
+        # Clear the screen
+        screen.brush = BLACK
+        screen.clear()
+
+        # Draw the background rect with rounded corners
+        screen.brush = self.background
+        screen.draw(shapes.rounded_rectangle(0, 0, screen.width, screen.height, 5))
+
+        # Draw the foreground rect, this is where we will show the time remaining.
+        screen.brush = SHADOW
+        screen.draw(shapes.rounded_rectangle(12, 12, screen.width - 20, 55, 5))
+        screen.brush = self.foreground
+        screen.draw(shapes.rounded_rectangle(10, 10, screen.width - 20, 55, 5))
+
+        # unpack the button position
+        x, y = self.btn_pos
+
+        # Draw the button with drop shadow
+        screen.brush = SHADOW
+        screen.draw(shapes.rounded_rectangle(x + 2, y + 2, 60, 20, 4))
+        screen.brush = self.foreground
+        screen.draw(shapes.rounded_rectangle(x, y, 60, 20, 4))
+
+        # Draw the button text, the text shown here depends on the current timer state
+        screen.brush = self.foreground
+        screen.font = small_font
+        if not self.running:
+            if self.is_break_time:
+                center_text("Start Break", y + 3)
+            else:
+                center_text("Start Task", y + 3)
+        elif self.running and self.paused:
+            center_text("Resume", y + 3)
+        else:
+            center_text("Pause", y + 3)
+
+        text = self.return_string()
+        screen.font = large_font
+        center_text(text, 22)
+
+    def run(self):
+
+        self.alert_start_time = 0
+
+        if self.is_break_time:
+            self.background = brushes.color(60, 60, 150)
+            if self.tasks_complete < 4:
+                self.current_timer = self.SHORT
+            else:
+                self.current_timer = self.LONG
+        else:
+            self.current_timer = self.TASK
+            self.background = brushes.color(200, 50, 50)
+
+        if not self.running:
+            self.reset()
+            self.running = True
+            self.start_time = time.time()
+        elif self.running and not self.paused:
+            self.paused = True
+        elif self.running and self.paused:
+            self.paused = False
+            self.start_time = time.time() - self.time_elapsed
+
+    def reset(self):
+        self.start_time = 0
+        self.time_elapsed = 0
+
+    def case_lights_off(self):
+        for led in case_lights:
+            led.off()
+
+    def toggle_case_lights(self):
+        if io.ticks - self.last_toggle > 200:
+            for led in case_lights:
+                led.value(not led.value())
+            self.last_toggle = io.ticks
+
+    def update(self):
+
+        if time.time() - self.alert_start_time < self.alert_duration:
+            self.toggle_case_lights()
+        else:
+            self.case_lights_off()
+
+        if self.running and not self.paused:
+
+            self.time_elapsed = time.time() - self.start_time
+
+            if self.time_elapsed >= self.current_timer:
+                self.running = False
+                self.alert_start_time = time.time()
+                if not self.is_break_time:
+                    if self.tasks_complete < 4:
+                        self.tasks_complete += 1
+                    else:
+                        self.tasks_complete = 0
+                self.is_break_time = not self.is_break_time
+
+    # Return the remaining time formatted in a string for displaying with vector text.
+    def return_string(self):
+        minutes, seconds = divmod(self.current_timer - self.time_elapsed, 60)
+        return f"{minutes:02d}:{seconds:02d}"
+
+
+# Create an instance of our timer object
+def init():
+    global timer
+    timer = Tomato()
+
+
+def on_exit():
+    pass
+
+
+def update():
+    global timer
+
+    if io.BUTTON_B in io.pressed:
+        timer.run()
+    timer.draw()
+    timer.update()
+
+
+# Standalone support for Thonny debugging
+if __name__ == "__main__":
+    run(update, init=init, on_exit=on_exit)
