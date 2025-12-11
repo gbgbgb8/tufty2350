@@ -41,6 +41,20 @@ def set_case_led(led=None, value=None):
     _CASE_LIGHTS[led].duty_u16(value)
 
 
+def get_case_led(led=None):
+
+    if led is None:
+        raise ValueError("LED must be provided!")
+
+    if not isinstance(led, int):
+        raise TypeError("LED must be a number between 0 and 3")
+
+    if led < 0 or led > len(_CASE_LIGHTS) - 1:
+        raise ValueError("LED out of range!")
+
+    return _CASE_LIGHTS[led].duty_u16() / 65535
+
+
 def get_light():
     # TODO: Returning the raw u16 is a little meh here, can we do an approx lux conversion?
     return LIGHT_SENSOR.read_u16()
