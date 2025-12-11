@@ -16,17 +16,17 @@ state = {
 }
 
 
-WHITE = brushes.color(255, 255, 255)
-BLACK = brushes.color(0, 0, 0)
-SHADOW = brushes.color(0, 0, 0, 125)
-BLUE1 = brushes.color(116, 204, 244)
-BLUE2 = brushes.color(28, 163, 236)
-BLUE3 = brushes.color(15, 94, 156)
-GREEN = brushes.color(0, 150, 0)
+WHITE = color.rgb(255, 255, 255)
+BLACK = color.rgb(0, 0, 0)
+SHADOW = color.rgb(0, 0, 0, 125)
+BLUE1 = color.rgb(116, 204, 244)
+BLUE2 = color.rgb(28, 163, 236)
+BLUE3 = color.rgb(15, 94, 156)
+GREEN = color.rgb(0, 150, 0)
 
-screen.antialias = Image.X4
+screen.antialias = image.X4
 
-large_font = PixelFont.load("/system/assets/fonts/smart.ppf")
+large_font = pixel_font.load("/system/assets/fonts/smart.ppf")
 screen.font = large_font
 
 graph_max = math.degrees(math.pi * 2)
@@ -44,26 +44,26 @@ def draw_graph(x, y, r, value):
     v = graph_max - (v * (graph_max / state["goal"]))
 
     # rotate and position it so 0 is at the top
-    pie = shapes.pie(0, 0, r, 0, v)
-    pie.transform = Matrix().translate(x, y).rotate(180)
+    pie = shape.pie(0, 0, r, 0, v)
+    pie.transform = mat3().translate(x, y).rotate(180)
 
     # Draw the  remaining non moving elements of the graph
-    screen.brush = SHADOW
-    screen.draw(shapes.circle(x + 2, y + 4, r))
+    screen.pen = SHADOW
+    screen.shape(shape.circle(x + 2, y + 4, r))
 
-    screen.brush = BLUE2 if not goal_met() else GREEN
-    screen.draw(shapes.circle(x, y, r))
+    screen.pen = BLUE2 if not goal_met() else GREEN
+    screen.shape(shape.circle(x, y, r))
 
-    screen.brush = BLUE3
-    screen.draw(pie)
-    screen.brush = WHITE
-    screen.draw(shapes.circle(x - 1, y, r - 10))
-    screen.brush = WHITE
-    screen.draw(shapes.circle(x, y, r - 1).stroke(2))
+    screen.pen = BLUE3
+    screen.shape(pie)
+    screen.pen = WHITE
+    screen.shape(shape.circle(x - 1, y, r - 10))
+    screen.pen = WHITE
+    screen.shape(shape.circle(x, y, r - 1).stroke(2))
 
     # if the graph is big enough, put the text in the centre.
     if r > 30:
-        screen.brush = BLUE3
+        screen.pen = BLUE3
         text = f"{state["current"]}ml"
         tw = screen.measure_text(text)[0]
         tx = x - tw / 2
@@ -101,15 +101,15 @@ def draw_menu():
 
     # darken the background when the menu is showing
     if show_menu:
-        screen.brush = SHADOW
+        screen.pen = SHADOW
         screen.clear()
 
     # draw the menu background
-    screen.brush = WHITE
-    screen.draw(shapes.rounded_rectangle(x, y, w, h, 3, 3, 0, 0))
+    screen.pen = WHITE
+    screen.shape(shape.rounded_rectangle(x, y, w, h, 3, 3, 0, 0))
 
     # Show the menu elements if the menu is showing including during transition
-    screen.brush = BLACK
+    screen.pen = BLACK
     if y != MENU_CLOSED_Y:
         t = f"{menu_value}ml"
         tx = CX - screen.measure_text(str(t))[0] / 2
@@ -121,10 +121,10 @@ def draw_menu():
         # gold star for meeting your daily goal! :)
         sx, sy = CX, y + 23
         if goal_met():
-            screen.brush = brushes.color(255, 255, 0)
-            screen.draw(shapes.star(sx, sy, 5, 9, 13))
-        screen.brush = SHADOW
-        screen.draw(shapes.star(sx, sy, 5, 9, 13).stroke(2))
+            screen.pen = color.rgb(255, 255, 0)
+            screen.shape(shape.star(sx, sy, 5, 9, 13))
+        screen.pen = SHADOW
+        screen.shape(shape.star(sx, sy, 5, 9, 13).stroke(2))
 
     else:
         screen.text("^", CX - 3, y + 2)
@@ -142,7 +142,7 @@ def draw_background():
             dist = math.sqrt((x + 5 - cx) ** 2 + (y + 5 - cy) ** 2)
             pulse = (math.sin(-io.ticks / 400 + (dist / 6)) / 2) + 0.5
             pulse = 0.8 + (pulse / 2)
-            screen.brush = brushes.color(255, 255, 255, 50 * pulse)
+            screen.pen = color.rgb(255, 255, 255, 50 * pulse)
             screen.rectangle(x, y, 10, 10)
             x += 10
         y += 10
@@ -183,7 +183,7 @@ def update():
 
         menu_value = clamp(menu_value, 0, state["goal"])
 
-    screen.brush = BLUE3
+    screen.pen = BLUE3
     screen.clear()
 
     draw_background()

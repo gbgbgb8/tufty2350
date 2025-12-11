@@ -63,9 +63,9 @@ class Pet:
     width, height = image.width * 4, image.height * 4
 
     # draw pets shadow
-    screen.brush = brushes.color(0, 0, 0, 20)
-    screen.draw(shapes.rectangle(x - (width / 2) + 5, y , width - 10, 2))
-    screen.draw(shapes.rectangle(x - (width / 2) + 5 + 2, y - 2, width - 10 - 4, 4))
+    screen.pen = color.rgb(0, 0, 0, 20)
+    screen.shape(shape.rectangle(x - (width / 2) + 5, y , width - 10, 2))
+    screen.shape(shape.rectangle(x - (width / 2) + 5 + 2, y - 2, width - 10 - 4, 4))
 
     # invert pet if they are walking left
     width *= self._direction

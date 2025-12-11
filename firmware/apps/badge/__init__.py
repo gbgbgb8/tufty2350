@@ -13,7 +13,7 @@ CY = screen.height / 2
 screen.antialias = screen.X2
 
 # details to be shown on the card
-id_photo = Image.load("avatar.png")
+id_photo = image.load("avatar.png")
 id_name = "Your Name"
 id_role = "Job title"
 
@@ -26,21 +26,21 @@ id_socials = {"bluesky": {"icon": None, "handle": ""},
 
 # load in the social icons
 for key in id_socials.keys():
-    id_socials[key]["icon"] = Image.load(f"assets/socials/{key}.png")
+    id_socials[key]["icon"] = image.load(f"assets/socials/{key}.png")
 
 # id card variables
-id_body = shapes.rounded_rectangle(0, 0, 140, 100, 7)
-id_outline = shapes.rounded_rectangle(0, 0, 140, 100, 7).stroke(2)
+id_body = shape.rounded_rectangle(0, 0, 140, 100, 7)
+id_outline = shape.rounded_rectangle(0, 0, 140, 100, 7).stroke(2)
 hue = 0.0
 saturation = 0.0
-background = brushes.color(255, 255, 255)
+background = color.rgb(255, 255, 255)
 flip = False
 flip_start = 0
 rear_view = False
 card_pos = (10, 10)
 
-small_font = PixelFont.load("/system/assets/fonts/winds.ppf")
-large_font = PixelFont.load("/system/assets/fonts/nope.ppf")
+small_font = pixel_font.load("/system/assets/fonts/winds.ppf")
+large_font = pixel_font.load("/system/assets/fonts/nope.ppf")
 
 
 # Source - https://stackoverflow.com/a
@@ -92,16 +92,16 @@ def draw_background():
             dist = math.sqrt((x + 5 - cx) ** 2 + (y + 5 - cy) ** 2)
             pulse = (math.sin(-io.ticks / 400 + (dist / 6)) / 2) + 0.5
             pulse = 0.8 + (pulse / 2)
-            screen.brush = brushes.color(0, 0, 0, 100 * pulse)
+            screen.pen = color.rgb(0, 0, 0, 100 * pulse)
             screen.rectangle(x, y, 10, 10)
             x += 10
         y += 10
 
 
 def shadow_text(text, x, y):
-    screen.brush = brushes.color(20, 40, 60, 100)
+    screen.pen = color.rgb(20, 40, 60, 100)
     screen.text(text, x + 1, y + 1)
-    screen.brush = brushes.color(0, 0, 0)
+    screen.pen = color.rgb(0, 0, 0)
     screen.text(text, x, y)
 
 
@@ -122,13 +122,13 @@ def change_background(h=None, s=None):
         hue += h
         hue = hue % 1
         rgb = hsv_to_rgb(hue, saturation, 1.0, 1.0)
-        background = brushes.color(*rgb)
+        background = color.rgb(*rgb)
 
     if s:
         saturation += s
         saturation = clamp(saturation, 0.0, 1.0)
         rgb = hsv_to_rgb(hue, saturation, 1.0, 1.0)
-        background = brushes.color(*rgb)
+        background = color.rgb(*rgb)
 
 
 def update():
@@ -140,7 +140,7 @@ def update():
     width = 1
 
     # clear the screen
-    screen.brush = background
+    screen.pen = background
     screen.clear()
 
     # ripple effect
@@ -179,27 +179,27 @@ def update():
             flip = False
 
     # draw the card
-    id_body.transform = Matrix().translate(CX, y).scale(width, 1)
-    id_outline.transform = Matrix().translate(CX, y).scale(width, 1)
+    id_body.transform = mat3().translate(CX, y).scale(width, 1)
+    id_outline.transform = mat3().translate(CX, y).scale(width, 1)
     id_body.transform = id_body.transform.translate(-70, 0)
     id_outline.transform = id_outline.transform.translate(-70, 0)
 
-    screen.brush = brushes.color(50, 50, 50, 100)
+    screen.pen = color.rgb(50, 50, 50, 100)
     id_body.transform = id_body.transform.translate(4, 4)
-    screen.draw(id_body)
+    screen.shape(id_body)
 
-    screen.brush = brushes.color(255, 255, 255, 90)
+    screen.pen = color.rgb(255, 255, 255, 90)
     id_body.transform = id_body.transform.translate(-4, -4)
-    screen.draw(id_body)
-    screen.brush = brushes.color(0, 0, 0, 100)
-    screen.draw(id_outline)
+    screen.shape(id_body)
+    screen.pen = color.rgb(0, 0, 0, 100)
+    screen.shape(id_outline)
 
     photo_y = y + 15 + id_photo.height
     socials_y = 22
 
     if not flip:
         # Draw the card information
-        screen.brush = brushes.color(0, 0, 0)
+        screen.pen = color.rgb(0, 0, 0)
         if not rear_view:
             screen.font = large_font
             screen.blit(id_photo, CX - id_photo.width / 2, y + 10)
@@ -209,8 +209,8 @@ def update():
         else:
             screen.font = large_font
             for account in id_socials.items():
-                screen.brush = brushes.color(100, 100, 100)
-                screen.draw(shapes.rounded_rectangle(20, socials_y, 17, 17, 3))
+                screen.pen = color.rgb(100, 100, 100)
+                screen.shape(shape.rounded_rectangle(20, socials_y, 17, 17, 3))
                 screen.blit(account[1]["icon"], 20, socials_y)
                 shadow_text(account[1]["handle"], 40, socials_y)
                 socials_y += 21

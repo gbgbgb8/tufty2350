@@ -5,14 +5,14 @@ import random
 
 rp2.enable_msc()
 
-background = brushes.color(35, 41, 37)
-phosphor = brushes.color(211, 250, 55, 150)
-white = brushes.color(235, 245, 255)
-faded = brushes.color(235, 245, 255, 200)
+background = color.rgb(35, 41, 37)
+phosphor = color.rgb(211, 250, 55, 150)
+white = color.rgb(235, 245, 255)
+faded = color.rgb(235, 245, 255, 200)
 
 try:
-    small_font = PixelFont.load("/system/assets/fonts/ark.ppf")
-    large_font = PixelFont.load("/system/assets/fonts/absolute.ppf")
+    small_font = pixel_font.load("/system/assets/fonts/ark.ppf")
+    large_font = pixel_font.load("/system/assets/fonts/absolute.ppf")
 except OSError:
     small_font = None
     large_font = None
@@ -39,12 +39,12 @@ class DiskMode():
         self.stars[i] = star
 
   def draw(self):
-    screen.brush = background
-    screen.draw(shapes.rectangle(0, 0, 160, 120))
+    screen.pen = background
+    screen.shape(shape.rectangle(0, 0, 160, 120))
 
     self.update()
 
-    rect = shapes.rectangle(0, 0, 1, 1)
+    rect = shape.rectangle(0, 0, 1, 1)
     for i in range(len(self.stars)):
       star = self.stars[i]
       age = min(1, star[2] / 50)
@@ -54,20 +54,20 @@ class DiskMode():
         brightness = 255
 
       if int(star[0]) != 0 and int(star[1]) != 0:
-        screen.brush = brushes.color(255, 255, 255, age * brightness)
-        rect.transform = Matrix().translate(star[0], star[1]).translate(80, 60)
-        screen.draw(rect)
+        screen.pen = color.rgb(255, 255, 255, age * brightness)
+        rect.transform = mat3().translate(star[0], star[1]).translate(80, 60)
+        screen.shape(rect)
 
     if large_font:
         screen.font = large_font
-        screen.brush = white
+        screen.pen = white
         center_text("USB Disk Mode", 5)
 
         screen.text("1:", 10, 23)
         screen.text("2:", 10, 45)
         screen.text("3:", 10, 67)
 
-        screen.brush = phosphor
+        screen.pen = phosphor
         screen.font = small_font
         wrap_text("""Your badge is now\nmounted as a disk""", 30, 24)
 
@@ -77,10 +77,10 @@ class DiskMode():
 
         screen.font = small_font
         if self.transferring:
-            screen.brush = white
+            screen.pen = white
             center_text("Transferring data!", 102)
         else:
-            screen.brush = faded
+            screen.pen = faded
             center_text("Waiting for data", 102)
 
 def center_text(text, y):

@@ -31,12 +31,12 @@ E18 - PSRAM Test Failure
 
 """
 
-WHITE = brushes.color(255, 255, 255)
-BLACK = brushes.color(0, 0, 0)
-DARK_BLUE = brushes.color(0, 100, 150)
-DARK_RED = brushes.color(150, 0, 0)
-DARK_GREEN = brushes.color(0, 200, 0)
-DARK_RED = brushes.color(150, 0, 0)
+WHITE = color.rgb(255, 255, 255)
+BLACK = color.rgb(0, 0, 0)
+DARK_BLUE = color.rgb(0, 100, 150)
+DARK_RED = color.rgb(150, 0, 0)
+DARK_GREEN = color.rgb(0, 200, 0)
+DARK_RED = color.rgb(150, 0, 0)
 
 WIDTH, HEIGHT = 160, 120
 
@@ -59,7 +59,7 @@ home = Pin.board.BUTTON_HOME
 power = Pin.board.POWER_EN
 LIGHT_SENSOR = ADC(Pin.board.LIGHT_SENSE)
 
-font_ignore = PixelFont.load("/system/assets/fonts/ignore.ppf")
+font_ignore = pixel_font.load("/system/assets/fonts/ignore.ppf")
 screen.font = font_ignore
 
 TEXT_SIZE = 12
@@ -160,12 +160,12 @@ class Tests:
             raise Exception("E17") from None
 
     def display_error(self, error):
-        screen.brush = DARK_RED
+        screen.pen = DARK_RED
         screen.clear()
 
         tw, th = screen.measure_text(str(error))
 
-        screen.brush = WHITE
+        screen.pen = WHITE
         screen.text(str(error), WIDTH / 2 - (tw / 2), HEIGHT / 2 - th / 2)
         display.update(False)
 
@@ -295,9 +295,9 @@ class Tests:
 
         # The test has passed now, we'll just stay here a while.
         while True:
-            screen.brush = DARK_GREEN
+            screen.pen = DARK_GREEN
             screen.clear()
-            screen.brush = WHITE
+            screen.pen = WHITE
             t = "Pass!"
             tw, _ = screen.measure_text(t)
             screen.text(t, 80 - (tw / 2), 5)
@@ -337,9 +337,9 @@ class Tests:
         start_time = time.time()
 
         while True:
-            screen.brush = DARK_BLUE
+            screen.pen = DARK_BLUE
             screen.clear()
-            screen.brush = WHITE
+            screen.pen = WHITE
             text_lines = wrap_and_measure(screen, "< Remove USB to continue.", TEXT_SIZE, 150)
             y = 40
             for line, _width in text_lines:
@@ -362,9 +362,9 @@ class Tests:
 
     def draw(self):
         # Clear screen and display title
-        screen.brush = DARK_BLUE
+        screen.pen = DARK_BLUE
         screen.clear()
-        screen.brush = WHITE
+        screen.pen = WHITE
 
         text_lines = wrap_and_measure(screen, "Press all face buttons + HOME", TEXT_SIZE, 150)
         y = 25
@@ -377,7 +377,7 @@ class Tests:
             pressed = self.buttons[button][0]
             if not pressed:
                 x, y = self.buttons[button][1]
-                screen.draw(shapes.rounded_rectangle(x, y, 10, 10, 3))
+                screen.shape(shape.rounded_rectangle(x, y, 10, 10, 3))
 
         display.update(False)
 

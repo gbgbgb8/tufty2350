@@ -22,11 +22,11 @@ from badgeware import SpriteSheet, run
 icons = SpriteSheet("ornament01.png", 1, 1)
 ornament = icons.sprite(0, 0)
 
-font_ziplock = PixelFont.load("/system/assets/fonts/ziplock.ppf")
-font_awesome = PixelFont.load("/system/assets/fonts/awesome.ppf")
-font_yolk = PixelFont.load("/system/assets/fonts/yolk.ppf")
+font_ziplock = pixel_font.load("/system/assets/fonts/ziplock.ppf")
+font_awesome = pixel_font.load("/system/assets/fonts/awesome.ppf")
+font_yolk = pixel_font.load("/system/assets/fonts/yolk.ppf")
 
-screen.antialias = Image.X2
+screen.antialias = image.X2
 
 RED = (169, 41, 33)
 STAR_YELLOW = (250, 225, 0)
@@ -165,8 +165,8 @@ class Snowflake:
 
     def _update(self):
         alpha = max(75 - (self.y / 2), 0)
-        screen.brush = brushes.color(255, 255, 255, alpha)
-        screen.draw(shapes.star(self.x, self.y, 5, self.d, self.d - 4))
+        screen.pen = color.rgb(255, 255, 255, alpha)
+        screen.shape(shape.star(self.x, self.y, 5, self.d, self.d - 4))
 
         if self.last_update:
             time_delta = (io.ticks - self.last_update) / 1000
@@ -184,7 +184,7 @@ class Snowflake:
 def connection_failed():
 
     screen.font = font_awesome
-    screen.brush = brushes.color(255, 255, 255, 150)
+    screen.pen = color.rgb(255, 255, 255, 150)
     centre_text("Connection Failed!", 5)
 
     screen.text("1:", 10, 63)
@@ -199,7 +199,7 @@ def connection_failed():
 def details_missing():
 
     screen.font = font_awesome
-    screen.brush = brushes.color(255, 255, 255, 150)
+    screen.pen = color.rgb(255, 255, 255, 150)
     centre_text("Missing Details!", 5)
 
     screen.text("1:", 10, 23)
@@ -221,7 +221,7 @@ def init():
 def update():
     global days_remaining, task, connected
 
-    screen.brush = brushes.color(*RED)
+    screen.pen = color.rgb(*RED)
     screen.clear()
 
     if len(Snowflake.flakes) < 45:
@@ -246,34 +246,34 @@ def update():
                     task = None
   
             # box shadow
-            screen.brush = brushes.color(0, 0, 0, 70)
-            screen.draw(shapes.rounded_rectangle(15 + 4, 25 + 4, screen.width - 30, screen.height - 50, 5))
+            screen.pen = color.rgb(0, 0, 0, 70)
+            screen.shape(shape.rounded_rectangle(15 + 4, 25 + 4, screen.width - 30, screen.height - 50, 5))
 
             # main box
-            screen.brush = brushes.color(255, 255, 255, 150)
-            screen.draw(shapes.rounded_rectangle(15, 25, screen.width - 30, screen.height - 50, 5))
+            screen.pen = color.rgb(255, 255, 255, 150)
+            screen.shape(shape.rounded_rectangle(15, 25, screen.width - 30, screen.height - 50, 5))
 
             # box outline
-            screen.brush = brushes.color(255, 255, 255, 175)
-            screen.draw(shapes.rounded_rectangle(15, 25, screen.width - 30, screen.height - 50, 5).stroke(2))
+            screen.pen = color.rgb(255, 255, 255, 175)
+            screen.shape(shape.rounded_rectangle(15, 25, screen.width - 30, screen.height - 50, 5).stroke(2))
 
             screen.scale_blit(ornament, 5, screen.height - 40, 32, 32)
 
-            screen.brush = brushes.color(*STAR_YELLOW)
-            star = shapes.star(0, 0, 5, 9, 16)
+            screen.pen = color.rgb(*STAR_YELLOW)
+            star = shape.star(0, 0, 5, 9, 16)
             star_rotate = math.sin(io.ticks / 1000) * 100
-            star.transform = Matrix().translate(screen.width - 20, 25).rotate(star_rotate)
-            screen.draw(star)
-            screen.brush = brushes.color(0, 0, 0, 100)
-            screen.draw(star.stroke(2))
+            star.transform = mat3().translate(screen.width - 20, 25).rotate(star_rotate)
+            screen.shape(star)
+            screen.pen = color.rgb(0, 0, 0, 100)
+            screen.shape(star.stroke(2))
             
             pulse = min(117 + math.sin(io.ticks * 1000) * 10, 255)
-            screen.brush = brushes.color(10, pulse, 51)
+            screen.pen = color.rgb(10, pulse, 51)
             screen.font = font_ziplock
 
             centre_text(f"{days_remaining if days_remaining else fake_number()}", 40)
             
-            screen.brush = brushes.color(10, 117, 51)
+            screen.pen = color.rgb(10, 117, 51)
             screen.font = font_yolk
             centre_text("Sleeps Until Christmas!", 65)
 

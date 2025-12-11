@@ -13,9 +13,9 @@ import ui
 
 
 
-small_font = PixelFont.load("/system/assets/fonts/ark.ppf")
-large_font = PixelFont.load("/system/assets/fonts/absolute.ppf")
-splash = Image.load("assets/splash.png")
+small_font = pixel_font.load("/system/assets/fonts/ark.ppf")
+large_font = pixel_font.load("/system/assets/fonts/absolute.ppf")
+splash = image.load("assets/splash.png")
 
 class Quest:
   def __init__(self, id, code, name):
@@ -72,8 +72,8 @@ def update():
   receiver.decode()
 
   # clear the screen
-  screen.brush = brushes.color(35, 41, 37)
-  screen.draw(shapes.rectangle(0, 0, 160, 120))
+  screen.pen = color.rgb(35, 41, 37)
+  screen.shape(shape.rectangle(0, 0, 160, 120))
 
   # draw the quest tile grid
   ui.draw_status(state["completed"])
@@ -110,14 +110,14 @@ def update():
       mw, _ = screen.measure_text(message)
 
       # draw message bubble
-      screen.brush = brushes.color(46, 160, 67, 200)
+      screen.pen = color.rgb(46, 160, 67, 200)
       lw_corners = (4, 4, 0, 0) if lw < mw else (4, 4, 4, 4)
       mw_corners = (4, 4, 4, 4) if lw < mw else (0, 0, 4, 4)
-      screen.draw(shapes.rounded_rectangle(80 - (lw / 2) - 4, 2, lw + 8, 18, *lw_corners))
-      screen.draw(shapes.rounded_rectangle(80 - (mw / 2) - 4, 20 , mw + 8, 12, *mw_corners))
+      screen.shape(shape.rounded_rectangle(80 - (lw / 2) - 4, 2, lw + 8, 18, *lw_corners))
+      screen.shape(shape.rounded_rectangle(80 - (mw / 2) - 4, 20 , mw + 8, 12, *mw_corners))
 
       # draw task label and message
-      screen.brush = brushes.color(255, 255, 255, 255)
+      screen.pen = color.rgb(255, 255, 255, 255)
       screen.font = large_font
       screen.text(label, 80 - (lw / 2), 2)
       screen.font = small_font

@@ -19,13 +19,13 @@ from breakout_ltr559 import BreakoutLTR559
 from lsm6ds3 import LSM6DS3, NORMAL_MODE_104HZ
 from machine import I2C
 
-BACKGROUND = brushes.color(255, 255, 255)
+BACKGROUND = color.rgb(255, 255, 255)
 
-font_absolute = PixelFont.load("/system/assets/fonts/absolute.ppf")
-font_memo = PixelFont.load("/system/assets/fonts/memo.ppf")
-font_winds = PixelFont.load("/system/assets/fonts/winds.ppf")
+font_absolute = pixel_font.load("/system/assets/fonts/absolute.ppf")
+font_memo = pixel_font.load("/system/assets/fonts/memo.ppf")
+font_winds = pixel_font.load("/system/assets/fonts/winds.ppf")
 
-screen.antialias = Image.X2
+screen.antialias = image.X2
 
 motion_sensor = LSM6DS3(I2C(), mode=NORMAL_MODE_104HZ)
 motion_samples = []
@@ -46,7 +46,7 @@ MOVE_COLOUR = (120, 170, 120)
 
 # viewport for the full screen window
 # we'll draw our sensor output to this image and blit it within a "window"
-win = Image(0, 0, screen.width - 27, screen.height - 28)
+win = image(0, 0, screen.width - 27, screen.height - 28)
 
 
 def centre_text(text, w, y, image=win):
@@ -58,7 +58,7 @@ def centre_text(text, w, y, image=win):
 def draw_light(wx, wy, ww, wh):
     global light_samples
 
-    win.brush = brushes.color(*LIGHT_COLOUR)
+    win.pen = color.rgb(*LIGHT_COLOUR)
     win.clear()
 
     reading = light_sensor.get_reading()
@@ -82,17 +82,17 @@ def draw_light(wx, wy, ww, wh):
     diameter = diameter_base + diameter_modifier
 
     cpos = [(10, 10), (30, 50), (100, 60), (130, 10), (70, 0), (70, 100)]
-    win.brush = brushes.color(255, 255, 255, avg_lux)
+    win.pen = color.rgb(255, 255, 255, avg_lux)
     for i, pos in enumerate(cpos):
         x, y = pos
-        win.draw(shapes.circle(x, y, diameter + 2))
-        win.draw(shapes.circle(x, y, diameter).stroke(2))
+        win.shape(shape.circle(x, y, diameter + 2))
+        win.shape(shape.circle(x, y, diameter).stroke(2))
 
 
 def draw_temperature(wx, wy, ww, wh):
     global graph, last_graph
 
-    win.brush = brushes.color(*TEMP_COLOUR)
+    win.pen = color.rgb(*TEMP_COLOUR)
     win.clear()
 
     # add values to the dummy graph animation
@@ -103,8 +103,8 @@ def draw_temperature(wx, wy, ww, wh):
 
     # draw the bars for the graph
     for i, t in enumerate(graph):
-        win.brush = brushes.color(5 * t, 5 * t, 5 * t, 50)
-        win.draw(shapes.rounded_rectangle(6 * i, (wy + wh - 10) - t, 5, t, 0))
+        win.pen = color.rgb(5 * t, 5 * t, 5 * t, 50)
+        win.shape(shape.rounded_rectangle(6 * i, (wy + wh - 10) - t, 5, t, 0))
 
     # calculate the centre of the window
     cx = ww / 2
@@ -123,7 +123,7 @@ def draw_temperature(wx, wy, ww, wh):
     pressure /= 100
     pressure = round(pressure)
 
-    win.brush = brushes.color(255, 255, 255, 75)
+    win.pen = color.rgb(255, 255, 255, 75)
     win.font = font_absolute
 
     # draw text for the readings
@@ -140,7 +140,7 @@ def draw_temperature(wx, wy, ww, wh):
 def draw_motion(wx, wy, ww, wh):
     global motion_samples
 
-    win.brush = brushes.color(*MOVE_COLOUR)
+    win.pen = color.rgb(*MOVE_COLOUR)
     win.clear()
 
     # centre of viewport
@@ -185,22 +185,22 @@ def draw_motion(wx, wy, ww, wh):
     z /= len(motion_samples)
 
     # draw raw sample buffer values
-    win.brush = brushes.color(0, 0, 0, 50)
+    win.pen = color.rgb(0, 0, 0, 50)
     for sample in motion_samples:
         sx, sy = sample[0], sample[1]
-        win.draw(shapes.circle((sx * radius) + cx, (sy * radius) + cy, 2))
+        win.shape(shape.circle((sx * radius) + cx, (sy * radius) + cy, 2))
 
     # draw averaged position
-    win.brush = brushes.color(255, 255, 255, 200)
-    win.draw(shapes.circle(cx, cy, radius).stroke(2))
-    win.draw(shapes.circle((x * radius) + cx, (y * radius) + cy, 4))
+    win.pen = color.rgb(255, 255, 255, 200)
+    win.shape(shape.circle(cx, cy, radius).stroke(2))
+    win.shape(shape.circle((x * radius) + cx, (y * radius) + cy, 4))
 
     # clamp the value for the y axis
     y = max(ry + 60 * z, ry)
 
     # draw the elements for the Z axis display
-    win.draw(shapes.rounded_rectangle(rx, ry, 15, 70, 3).stroke(2))
-    win.draw(shapes.rounded_rectangle(rx, y, 15, 10, 3))
+    win.shape(shape.rounded_rectangle(rx, ry, 15, 70, 3).stroke(2))
+    win.shape(shape.rounded_rectangle(rx, y, 15, 10, 3))
 
 
 # UI STUFF
@@ -268,21 +268,21 @@ class Widget:
         # if full view is not active on any of the widgets, we can draw the icons.
         if not any(view.full_view for view in Widget.widgets):
             # Widget shadow
-            screen.brush = brushes.color(0, 0, 0, 70)
-            screen.draw(shapes.rounded_rectangle(self.x + 1.5, self.y + 1.5, self.w, self.h, 5))
+            screen.pen = color.rgb(0, 0, 0, 70)
+            screen.shape(shape.rounded_rectangle(self.x + 1.5, self.y + 1.5, self.w, self.h, 5))
 
             # Widget main body w/ outline
-            screen.brush = brushes.color(*self.colour_main)
-            screen.draw(shapes.rounded_rectangle(self.x, self.y + yo, self.w, self.h, 5))
-            screen.brush = brushes.color(0, 0, 0, 70)
-            screen.draw(shapes.rounded_rectangle(self.x, self.y + yo, self.w, self.h, 5).stroke(2))
-            screen.brush = brushes.color(255, 255, 255, 128)
+            screen.pen = color.rgb(*self.colour_main)
+            screen.shape(shape.rounded_rectangle(self.x, self.y + yo, self.w, self.h, 5))
+            screen.pen = color.rgb(0, 0, 0, 70)
+            screen.shape(shape.rounded_rectangle(self.x, self.y + yo, self.w, self.h, 5).stroke(2))
+            screen.pen = color.rgb(255, 255, 255, 128)
 
             line_y = (self.y + 3) + yo
-            screen.draw(shapes.line(self.x + 2, line_y, self.x + self.w - 2, line_y, 1))
+            screen.shape(shape.line(self.x + 2, line_y, self.x + self.w - 2, line_y, 1))
             if self.selected:
-                screen.brush = brushes.color(0, 0, 0, 100)
-                screen.draw(shapes.rounded_rectangle(self.x, self.y + yo, self.w, self.h, 5).stroke(2))
+                screen.pen = color.rgb(0, 0, 0, 100)
+                screen.shape(shape.rounded_rectangle(self.x, self.y + yo, self.w, self.h, 5).stroke(2))
 
             if self.title:
                 screen.font = font_winds
@@ -298,24 +298,24 @@ class Widget:
         if self.full_view:
 
             # window shadow
-            screen.brush = brushes.color(0, 0, 0, 100)
-            screen.draw(shapes.rounded_rectangle(self.wx + 3, self.wy + 3, self.ww, self.wh, 5))
+            screen.pen = color.rgb(0, 0, 0, 100)
+            screen.shape(shape.rounded_rectangle(self.wx + 3, self.wy + 3, self.ww, self.wh, 5))
 
             # main window
-            screen.brush = brushes.color(*self.colour_main)
-            screen.draw(shapes.rounded_rectangle(self.wx, self.wy, self.ww, self.wh, 5))
-            screen.brush = brushes.color(0, 0, 0, 100)
-            screen.draw(shapes.rounded_rectangle(self.wx, self.wy, self.ww, self.wh, 5).stroke(3))
-            screen.draw(shapes.line(13, 14, 147, 14, 1))
+            screen.pen = color.rgb(*self.colour_main)
+            screen.shape(shape.rounded_rectangle(self.wx, self.wy, self.ww, self.wh, 5))
+            screen.pen = color.rgb(0, 0, 0, 100)
+            screen.shape(shape.rounded_rectangle(self.wx, self.wy, self.ww, self.wh, 5).stroke(3))
+            screen.shape(shape.line(13, 14, 147, 14, 1))
 
             if self.draw:
                 self.draw(self.wx, self.wy, self.ww, self.wh)
             screen.blit(win, self.wx + 4, self.wy + 5)
 
             # draw the close button
-            screen.draw(shapes.rounded_rectangle(71, screen.height - 28, 18, 15, 3, 3, 0, 0))
+            screen.shape(shape.rounded_rectangle(71, screen.height - 28, 18, 15, 3, 3, 0, 0))
             screen.font = font_absolute
-            screen.brush = brushes.color(255, 255, 255, 120)
+            screen.pen = color.rgb(255, 255, 255, 120)
             screen.text("X", 76, screen.height - 29)
 
     @staticmethod
@@ -342,21 +342,21 @@ def init():
 def update():
     global sensor
 
-    screen.brush = brushes.color(0, 0, 0)
+    screen.pen = color.rgb(0, 0, 0)
     screen.clear()
-    screen.brush = BACKGROUND
-    screen.draw(shapes.rounded_rectangle(0, 0, screen.width, screen.height, 5))
+    screen.pen = BACKGROUND
+    screen.shape(shape.rounded_rectangle(0, 0, screen.width, screen.height, 5))
 
     screen.font = font_memo
-    screen.brush = brushes.color(175, 175, 175)
-    screen.draw(shapes.rounded_rectangle(0, 0, screen.width, 20, 5, 5, 0, 0))
-    screen.brush = brushes.color(0, 0, 0)
+    screen.pen = color.rgb(175, 175, 175)
+    screen.shape(shape.rounded_rectangle(0, 0, screen.width, 20, 5, 5, 0, 0))
+    screen.pen = color.rgb(0, 0, 0)
     screen.text("Sensor Suite", 36 + 1, 1 + 1)
-    screen.brush = brushes.color(255, 255, 255)
+    screen.pen = color.rgb(255, 255, 255)
     screen.text("Sensor Suite", 36, 1)
 
-    screen.brush = brushes.color(155, 155, 155)
-    screen.draw(shapes.line(0, 19, screen.width, 19, 1))
+    screen.pen = color.rgb(155, 155, 155)
+    screen.shape(shape.line(0, 19, screen.width, 19, 1))
 
     Widget.update()
 

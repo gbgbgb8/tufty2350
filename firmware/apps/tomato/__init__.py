@@ -18,22 +18,22 @@ import time
 CX = screen.width // 2
 CY = screen.height // 2
 
-BLACK = brushes.color(0, 0, 0)
-SHADOW = brushes.color(0, 0, 0, 100)
+BLACK = color.rgb(0, 0, 0)
+SHADOW = color.rgb(0, 0, 0, 100)
 
 screen.antialias = screen.X4
 
-small_font = PixelFont.load("/system/assets/fonts/winds.ppf")
-large_font = PixelFont.load("/system/assets/fonts/ignore.ppf")
+small_font = pixel_font.load("/system/assets/fonts/winds.ppf")
+large_font = pixel_font.load("/system/assets/fonts/ignore.ppf")
 screen.font = small_font
 
 case_lights = [machine.Pin.board.CL0, machine.Pin.board.CL1, machine.Pin.board.CL2, machine.Pin.board.CL3]
 
 
 def shadow_text(text, x, y):
-    screen.brush = brushes.color(20, 40, 60, 100)
+    screen.pen = color.rgb(20, 40, 60, 100)
     screen.text(text, x + 1, y + 1)
-    screen.brush = brushes.color(255, 255, 255)
+    screen.pen = color.rgb(255, 255, 255)
     screen.text(text, x, y)
 
 
@@ -45,8 +45,8 @@ def center_text(text, y):
 class Tomato(object):
     def __init__(self):
 
-        self.background = brushes.color(200, 50, 50)  # We'll use this one for the background.
-        self.foreground = brushes.color(255, 255, 255, 140)  # Slightly lighter for foreground elements.
+        self.background = color.rgb(200, 50, 50)  # We'll use this one for the background.
+        self.foreground = color.rgb(255, 255, 255, 140)  # Slightly lighter for foreground elements.
 
         # Time constants.
         # Feel free to change these to ones that work better for you.
@@ -72,30 +72,30 @@ class Tomato(object):
     def draw(self):
 
         # Clear the screen
-        screen.brush = BLACK
+        screen.pen = BLACK
         screen.clear()
 
         # Draw the background rect with rounded corners
-        screen.brush = self.background
-        screen.draw(shapes.rounded_rectangle(0, 0, screen.width, screen.height, 5))
+        screen.pen = self.background
+        screen.shape(shape.rounded_rectangle(0, 0, screen.width, screen.height, 5))
 
         # Draw the foreground rect, this is where we will show the time remaining.
-        screen.brush = SHADOW
-        screen.draw(shapes.rounded_rectangle(12, 12, screen.width - 20, 55, 5))
-        screen.brush = self.foreground
-        screen.draw(shapes.rounded_rectangle(10, 10, screen.width - 20, 55, 5))
+        screen.pen = SHADOW
+        screen.shape(shape.rounded_rectangle(12, 12, screen.width - 20, 55, 5))
+        screen.pen = self.foreground
+        screen.shape(shape.rounded_rectangle(10, 10, screen.width - 20, 55, 5))
 
         # unpack the button position
         x, y = self.btn_pos
 
         # Draw the button with drop shadow
-        screen.brush = SHADOW
-        screen.draw(shapes.rounded_rectangle(x + 2, y + 2, 60, 20, 4))
-        screen.brush = self.foreground
-        screen.draw(shapes.rounded_rectangle(x, y, 60, 20, 4))
+        screen.pen = SHADOW
+        screen.shape(shape.rounded_rectangle(x + 2, y + 2, 60, 20, 4))
+        screen.pen = self.foreground
+        screen.shape(shape.rounded_rectangle(x, y, 60, 20, 4))
 
         # Draw the button text, the text shown here depends on the current timer state
-        screen.brush = self.foreground
+        screen.pen = self.foreground
         screen.font = small_font
         if not self.running:
             if self.is_break_time:
@@ -116,14 +116,14 @@ class Tomato(object):
         self.alert_start_time = 0
 
         if self.is_break_time:
-            self.background = brushes.color(60, 60, 150)
+            self.background = color.rgb(60, 60, 150)
             if self.tasks_complete < 4:
                 self.current_timer = self.SHORT
             else:
                 self.current_timer = self.LONG
         else:
             self.current_timer = self.TASK
-            self.background = brushes.color(200, 50, 50)
+            self.background = color.rgb(200, 50, 50)
 
         if not self.running:
             self.reset()

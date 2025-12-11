@@ -18,7 +18,7 @@ current_frame_filename = None
 
 ticks_start = None
 
-CLEAR = shapes.rectangle(0, 0, screen.width, screen.height)
+CLEAR = shape.rectangle(0, 0, screen.width, screen.height)
 
 
 def show_frame(i, alpha=255):
@@ -27,8 +27,8 @@ def show_frame(i, alpha=255):
     filename = f"frames/intro_{i:05d}.png"
     screen.load_into(filename)
 
-    screen.brush = brushes.color(0, 0, 0, 255 - alpha)
-    screen.draw(CLEAR)
+    screen.pen = color.rgb(0, 0, 0, 255 - alpha)
+    screen.shape(CLEAR)
 
     # render the frame
     current_frame_filename = filename
@@ -67,8 +67,8 @@ def update():
             alpha = 255 - ((time_since_pressed / fade_duration) * 255)
         else:
             # Return control to the menu
-            screen.brush = brushes.color(0, 0, 0)
-            screen.draw(CLEAR)
+            screen.pen = color.rgb(0, 0, 0)
+            screen.shape(CLEAR)
             display.update()
             return False
 

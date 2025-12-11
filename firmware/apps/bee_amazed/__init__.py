@@ -34,10 +34,10 @@ state = GameState.INTRO
 hedge = SpriteSheet("assets/hedge.png", 2, 16)
 
 # Setup for the display
-font = PixelFont.load("/system/assets/fonts/nope.ppf")
-large_font = PixelFont.load("/system/assets/fonts/ziplock.ppf")
+font = pixel_font.load("/system/assets/fonts/nope.ppf")
+large_font = pixel_font.load("/system/assets/fonts/ziplock.ppf")
 screen.font = font
-screen.antialias = Image.X4
+screen.antialias = image.X4
 
 animations = {
     "up": None,
@@ -51,18 +51,18 @@ for dir in animations.keys():
     animations[dir] = sprites.animation()
 
 # Colour Constants
-BLACK = brushes.color(0, 0, 0)
-WHITE = brushes.color(255, 255, 255)
-WINDOW_COLOR = brushes.color(227, 231, 110, 125)
-WALL = brushes.color(127, 125, 244)
-BACKGROUND = Image.load("assets/background.png")
-PATH = brushes.color((227 + 60) // 2, (231 + 57) // 2, (110 + 169) // 2)
+BLACK = color.rgb(0, 0, 0)
+WHITE = color.rgb(255, 255, 255)
+WINDOW_COLOR = color.rgb(227, 231, 110, 125)
+WALL = color.rgb(127, 125, 244)
+BACKGROUND = image.load("assets/background.png")
+PATH = color.rgb((227 + 60) // 2, (231 + 57) // 2, (110 + 169) // 2)
 
 
-screen.brush = brushes.color(0, 0, 0)
+screen.pen = color.rgb(0, 0, 0)
 
 # enable hi-res mode
-hires()
+mode(HIRES)
 
 CX, CY = screen.width / 2, screen.height / 2
 
@@ -327,7 +327,7 @@ def build_maze():
 
 
 # flower to mark our goal
-flower = Image.load("assets/flower.png")
+flower = image.load("assets/flower.png")
 
 
 def draw_maze():
@@ -347,9 +347,9 @@ def draw_maze():
 
 
 def shadow_text(text, x, y):
-    screen.brush = brushes.color(20, 40, 60, 100)
+    screen.pen = color.rgb(20, 40, 60, 100)
     screen.text(text, x + 1, y + 1)
-    screen.brush = brushes.color(255, 255, 255)
+    screen.pen = color.rgb(255, 255, 255)
     screen.text(text, x, y)
 
 
@@ -381,12 +381,12 @@ def intro():
 def draw_complete_banner():
     global level, complete
 
-    screen.brush = WINDOW_COLOR
-    screen.draw(shapes.rounded_rectangle(10, CY - 24, screen.width - 20, 50, 5))
+    screen.pen = WINDOW_COLOR
+    screen.shape(shape.rounded_rectangle(10, CY - 24, screen.width - 20, 50, 5))
 
     # Draw text
     screen.font = font
-    screen.brush = WHITE
+    screen.pen = WHITE
     center_text(f"Level {level + 1} Complete!", CY - 15)
     center_text("Press B to continue", CY + 5)
 

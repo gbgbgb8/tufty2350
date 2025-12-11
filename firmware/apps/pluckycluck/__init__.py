@@ -8,11 +8,11 @@ from badgeware import run, State
 from chicken import Chicken
 from obstacle import Obstacle
 
-background = Image.load("assets/background.png")
-grass = Image.load("assets/grass.png")
-cloud = Image.load("assets/cloud.png")
-large_font = PixelFont.load("/system/assets/fonts/ziplock.ppf")
-small_font = PixelFont.load("/system/assets/fonts/nope.ppf")
+background = image.load("assets/background.png")
+grass = image.load("assets/grass.png")
+cloud = image.load("assets/cloud.png")
+large_font = pixel_font.load("/system/assets/fonts/ziplock.ppf")
+small_font = pixel_font.load("/system/assets/fonts/nope.ppf")
 chicken = None
 
 score = {
@@ -135,7 +135,7 @@ def game_over():
 
     # flash press button message
     if int(io.ticks / 500) % 2:
-        screen.brush = brushes.color(255, 255, 255)
+        screen.pen = color.rgb(255, 255, 255)
         center_text("Press B to restart", 70)
 
     if io.BUTTON_B in io.pressed:
@@ -151,8 +151,8 @@ def draw_background():
     global background_offset
 
     # clear the whole screen in a bright blue
-    screen.brush = brushes.color(250, 198, 104)
-    screen.draw(shapes.rectangle(0, 0, 160, 120))
+    screen.pen = color.rgb(250, 198, 104)
+    screen.shape(shape.rectangle(0, 0, 160, 120))
 
     # if we're on the intro screen or chicken is alive then scroll the background
     if not chicken or not chicken.is_dead() or state == GameState.INTRO:
@@ -178,9 +178,9 @@ def draw_background():
 
 
 def shadow_text(text, x, y):
-    screen.brush = brushes.color(20, 40, 60, 100)
+    screen.pen = color.rgb(20, 40, 60, 100)
     screen.text(text, x + 1, y + 1)
-    screen.brush = brushes.color(255, 255, 255)
+    screen.pen = color.rgb(255, 255, 255)
     screen.text(text, x, y)
 
 

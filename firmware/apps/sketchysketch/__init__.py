@@ -8,7 +8,7 @@ from badgeware import run
 import ui
 
 
-canvas = Image(ui.canvas_area[2], ui.canvas_area[3])
+canvas = image(ui.canvas_area[2], ui.canvas_area[3])
 cursor = (ui.canvas_area[2] / 2, ui.canvas_area[3] / 2)
 
 last_cursor_move = None
@@ -44,8 +44,8 @@ def update_cursor():
 
     if not last_cursor or int(last_cursor[0]) != int(cursor[0]) or int(last_cursor[1]) != int(cursor[1]):
         # draw to the canvas at the cursor position
-        canvas.brush = brushes.color(105, 105, 105)
-        canvas.draw(shapes.rectangle(int(cursor[0]), int(cursor[1]), 1, 1))
+        canvas.pen = color.rgb(105, 105, 105)
+        canvas.shape(shape.rectangle(int(cursor[0]), int(cursor[1]), 1, 1))
     last_cursor = cursor
 
 

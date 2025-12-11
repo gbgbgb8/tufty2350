@@ -131,7 +131,7 @@ def is_dir(path):
 
 class SpriteSheet:
     def __init__(self, file, columns, rows):
-        self.image = Image.load(file)
+        self.image = image.load(file)
         self.sw = int(self.image.width / columns)
         self.sh = int(self.image.height / rows)
 
@@ -176,7 +176,7 @@ class AnimatedSprite:
 
 class BitmapFont:
     def __init__(self, file, char_width, char_height):
-        self.image = Image.load(file)
+        self.image = image.load(file)
         self.cw = char_width
         self.ch = char_height
 
@@ -330,7 +330,7 @@ class Assets:
     def font(name):
         file = f"{ASSETS}/fonts/{name}.ppf"
         try:
-            return PixelFont.load(file)
+            return pixel_font.load(file)
         except OSError as e:
             raise ValueError(f'Font "{name}" not found. (Missing {file}?)') from e
 
@@ -457,38 +457,41 @@ def update_backlight():
     display.backlight(sum(backlight_smoothing) / MAX_BACKLIGHT_SAMPLES)
 
 
-def hires():
+def mode(mode):
+    global _current_mode
+
+    if mode == _current_mode:
+        return False
+
+    _current_mode = mode
+
     # TODO: Mutate the existing screen object?
     font = screen.font
-    brush = screen.brush
-    setattr(builtins, "screen", Image(320, 240, memoryview(display)))
-    screen.font = font
-    screen.brush = brush
+    brush = screen.pen
+    resolution = (320, 240) if HIRES else (160, 120)
+    setattr(builtins, "screen", image(*resolution, memoryview(display)))
+    screen.font = font if font is not None else DEFAULT_FONT
+    screen.pen = brush if brush is not None else BG
+    picovector.default_target = screen
 
+    return True
 
-def lores():
-    # TODO: Mutate the existing screen object?
-    font = screen.font
-    brush = screen.brush
-    setattr(builtins, "screen", Image(160, 120, memoryview(display)))
-    screen.font = font
-    screen.brush = brush
 
 
 def run(update, init=None, on_exit=None, auto_clear=True):
     screen.font = DEFAULT_FONT
-    screen.brush = BG
+    screen.pen = BG
     screen.clear()
-    screen.brush = FG
+    screen.pen = FG
     try:
         if init:
             init()
         try:
             while True:
                 if auto_clear:
-                    screen.brush = BG
+                    screen.pen = BG
                     screen.clear()
-                    screen.brush = FG
+                    screen.pen = FG
                 io.poll()
                 if (result := update()) is not None:
                     return result
@@ -518,25 +521,25 @@ def message(title, text, window=None):
     error_window.font = DEFAULT_FONT
 
     # Draw a light grey background
-    background = shapes.rounded_rectangle(
+    background = shape.rounded_rectangle(
         0, 0, error_window.width, error_window.height, 5, 5, 5, 5
     )
-    heading = shapes.rounded_rectangle(0, 0, error_window.width, 12, 5, 5, 0, 0)
-    error_window.brush = brushes.color(100, 100, 100, 200)
-    error_window.draw(background)
+    heading = shape.rounded_rectangle(0, 0, error_window.width, 12, 5, 5, 0, 0)
+    error_window.pen = color.rgb(100, 100, 100, 200)
+    error_window.shape(background)
 
-    error_window.brush = brushes.color(255, 100, 100, 200)
-    error_window.draw(heading)
+    error_window.pen = color.rgb(255, 100, 100, 200)
+    error_window.shape(heading)
 
-    error_window.brush = brushes.color(50, 100, 50)
+    error_window.pen = color.rgb(50, 100, 50)
     tw = 35
-    error_window.draw(
-        shapes.rounded_rectangle(
+    error_window.shape(
+        shape.rounded_rectangle(
             error_window.width - tw - 10, error_window.height - 12, tw, 12, 3, 3, 0, 0
         )
     )
 
-    error_window.brush = brushes.color(255, 200, 200)
+    error_window.pen = color.rgb(255, 200, 200)
     error_window.text(
         "Okay", error_window.width - tw + 5 - 10, error_window.height - 12
     )
@@ -544,7 +547,7 @@ def message(title, text, window=None):
     error_window.text(title, 5, y)
     y += 17
 
-    error_window.brush = brushes.color(200, 200, 200)
+    error_window.pen = color.rgb(200, 200, 200)
     text_lines = wrap_and_measure(error_window, text, 12, error_window.width - 10)
     for line, _width in text_lines:
         error_window.text(line, 5, y)
@@ -582,20 +585,17 @@ for k, v in picovector.__dict__.items():
     if not k.startswith("__"):
         setattr(builtins, k, v)
 
-setattr(builtins, "screen", Image(160, 120, memoryview(display)))
-
-# Build in some badgeware helpers
-for k in ("lores", "hires"):
-    setattr(builtins, k, locals()[k])
+setattr(builtins, "screen", image(160, 120, memoryview(display)))
+picovector.default_target = screen
 
 
 ASSETS = "/system/assets"
 LIGHT_SENSOR = machine.ADC(machine.Pin("LIGHT_SENSE"))
-DEFAULT_FONT = PixelFont.load(f"{ASSETS}/fonts/sins.ppf")
-ERROR_FONT = PixelFont.load(f"{ASSETS}/fonts/desert.ppf")
+DEFAULT_FONT = pixel_font.load(f"{ASSETS}/fonts/sins.ppf")
+ERROR_FONT = pixel_font.load(f"{ASSETS}/fonts/desert.ppf")
 
-FG = brushes.color(255, 255, 255)
-BG = brushes.color(0, 0, 0)
+FG = color.rgb(255, 255, 255)
+BG = color.rgb(0, 0, 0)
 
 VBAT_SENSE = machine.ADC(machine.Pin.board.VBAT_SENSE)
 VBUS_DETECT = machine.Pin.board.VBUS_DETECT
@@ -605,30 +605,33 @@ SENSE_1V1 = machine.ADC(machine.Pin.board.SENSE_1V1)
 BAT_MAX = 4.10
 BAT_MIN = 3.00
 
+HIRES = 1
+LORES = 0
+
 conversion_factor = 3.3 / 65536
 
+_current_mode = LORES
 
+
+# TODO: Add these to `brush` ?
 class Colors:
-    GREEN_1 = brushes.color(86, 211, 100)
-    GREEN_2 = brushes.color(46, 160, 67)
-    GREEN_3 = brushes.color(25, 108, 46)
-    GREEN_4 = brushes.color(3, 58, 22)
-    GRAY_1 = brushes.color(242, 245, 243)
-    GRAY_2 = brushes.color(228, 235, 230)
-    GRAY_3 = brushes.color(182, 191, 184)
-    GRAY_4 = brushes.color(144, 150, 146)
-    GRAY_5 = brushes.color(35, 41, 37)
-    GRAY_6 = brushes.color(16, 20, 17)
+    black = color.rgb(0, 0, 0)
+    white = color.rgb(255, 255, 255)
+    red = color.rgb(255, 0, 0)
+    yellow = color.rgb(255, 255, 0)
+    green = color.rgb(0, 255, 0)
+    teal = color.rgb(0, 255, 255)
+    blue = color.rgb(0, 0, 255)
+    purple = color.rgb(255, 0, 255)
 
-    BLACK = brushes.color(0, 0, 0)
-    WHITE = brushes.color(255, 255, 255)
 
-    RED = brushes.color(255, 0, 0)
-    YELLOW = brushes.color(255, 255, 0)
-    GREEN = brushes.color(0, 255, 0)
-    TEAL = brushes.color(0, 255, 255)
-    BLUE = brushes.color(0, 0, 255)
-    PURPLE = brushes.color(255, 0, 255)
+# Build in some badgeware helpers, so we don't have to "bw.lores" etc
+for k in ("mode", "HIRES", "LORES", "SpriteSheet", "Colors"):
+    setattr(builtins, k, locals()[k])
+
+
+# Finally, build in badgeware as "bw" for less frequently used things
+setattr(builtins, "bw", sys.modules["badgeware"])
 
 
 if __name__ == "__main__":
