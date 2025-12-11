@@ -11,7 +11,7 @@ os.chdir(APP_DIR)
 # Standalone bootstrap for module imports
 sys.path.insert(0, APP_DIR)
 
-from badgeware import run, display
+from badgeware import run, display, set_case_led, get_case_led
 import time
 
 # Centre points for the display
@@ -26,8 +26,6 @@ screen.antialias = screen.X4
 small_font = pixel_font.load("/system/assets/fonts/winds.ppf")
 large_font = pixel_font.load("/system/assets/fonts/ignore.ppf")
 screen.font = small_font
-
-case_lights = [machine.Pin.board.CL0, machine.Pin.board.CL1, machine.Pin.board.CL2, machine.Pin.board.CL3]
 
 
 def shadow_text(text, x, y):
@@ -140,13 +138,14 @@ class Tomato(object):
         self.time_elapsed = 0
 
     def case_lights_off(self):
-        for led in case_lights:
-            led.off()
+        for led in range(4):
+            set_case_led(led, 0)
 
     def toggle_case_lights(self):
-        if io.ticks - self.last_toggle > 200:
-            for led in case_lights:
-                led.value(not led.value())
+        if io.ticks - self.last_toggle > 250:
+            for led in range(4):
+                value = 1 - get_case_led(led)
+                set_case_led(led, value)
             self.last_toggle = io.ticks
 
     def update(self):
