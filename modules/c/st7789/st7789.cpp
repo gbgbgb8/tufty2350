@@ -1,11 +1,10 @@
 #include "st7789.hpp"
 
-extern uint32_t framebuffer[];
+
 namespace pimoroni {
 
-  //uint32_t framebuffer[160 * 120];
+  uint32_t framebuffer[320 * 240];
   uint16_t backbuffer[160 * 240];
-  //uint16_t linebuffer[160 * 2];
 
   enum MADCTL : uint8_t {
     ROW_ORDER   = 0b10000000,
