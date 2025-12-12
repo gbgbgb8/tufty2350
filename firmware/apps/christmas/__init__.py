@@ -268,13 +268,10 @@ def update():
             screen.pen = color.rgb(0, 0, 0, 100)
             screen.shape(star.stroke(2))
 
-            pulse = min(117 + math.sin(io.ticks * 1000) * 10, 255)
-            screen.pen = color.rgb(10, pulse, 51)
             screen.font = font_ziplock
-
+            screen.pen = color.rgb(10, 117, 51)
             centre_text(f"{days_remaining if days_remaining else fake_number()}", 40)
 
-            screen.pen = color.rgb(10, 117, 51)
             screen.font = font_yolk
             centre_text("Sleeps Until Christmas!", 65)
 
