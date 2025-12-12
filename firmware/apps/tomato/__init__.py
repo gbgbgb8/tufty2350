@@ -19,6 +19,7 @@ CX = screen.width // 2
 CY = screen.height // 2
 
 BLACK = color.rgb(0, 0, 0)
+WHITE = color.rgb(255, 255, 255)
 SHADOW = color.rgb(0, 0, 0, 100)
 
 screen.antialias = screen.X4
@@ -43,8 +44,8 @@ def center_text(text, y):
 class Tomato(object):
     def __init__(self):
 
-        self.background = color.rgb(200, 50, 50)  # We'll use this one for the background.
-        self.foreground = color.rgb(255, 255, 255, 140)  # Slightly lighter for foreground elements.
+        self.background = brush.pattern(color.rgb(200, 50, 50, 170), color.rgb(200, 50, 50), 4)
+        self.foreground = color.rgb(255, 255, 255, 100)  # Slightly lighter for foreground elements.
 
         # Time constants.
         # Feel free to change these to ones that work better for you.
@@ -114,14 +115,14 @@ class Tomato(object):
         self.alert_start_time = 0
 
         if self.is_break_time:
-            self.background = color.rgb(60, 60, 150)
+            self.background = brush.pattern(color.rgb(60, 60, 150, 170), color.rgb(60, 60, 150), 4)
             if self.tasks_complete < 4:
                 self.current_timer = self.SHORT
             else:
                 self.current_timer = self.LONG
         else:
             self.current_timer = self.TASK
-            self.background = color.rgb(200, 50, 50)
+            self.background = brush.pattern(color.rgb(200, 50, 50, 170), color.rgb(200, 50, 50), 4)
 
         if not self.running:
             self.reset()
