@@ -383,8 +383,7 @@ def mode(mode):
 
 def run(update, init=None, on_exit=None, auto_clear=True):
     screen.font = DEFAULT_FONT
-    screen.pen = BG
-    screen.clear()
+    screen.clear(BG)
     screen.pen = FG
     try:
         if init:
@@ -392,8 +391,7 @@ def run(update, init=None, on_exit=None, auto_clear=True):
         try:
             while True:
                 if auto_clear:
-                    screen.pen = BG
-                    screen.clear()
+                    screen.clear(BG)
                     screen.pen = FG
                 io.poll()
                 if (result := update()) is not None:
@@ -518,7 +516,7 @@ DEFAULT_FONT = rom_font.sins
 ERROR_FONT = rom_font.desert
 
 FG = color.rgb(255, 255, 255)
-BG = color.rgb(0, 0, 0)
+BG = color.rgb(20, 40, 60)
 
 VBAT_SENSE = machine.ADC(machine.Pin.board.VBAT_SENSE)
 VBUS_DETECT = machine.Pin.board.VBUS_DETECT
