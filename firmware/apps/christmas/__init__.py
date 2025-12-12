@@ -222,7 +222,7 @@ def init():
 def update():
     global days_remaining, task, connected
 
-    screen.pen = color.rgb(*RED)
+    screen.pen = brush.pattern(color.rgb(*RED), color.rgb(200, 50, 50), 31)
     screen.clear()
 
     if len(Snowflake.flakes) < 45:
