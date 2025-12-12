@@ -7,10 +7,8 @@ green = color.rgb(9, 183, 117)
 yellow = color.rgb(246, 167, 4)
 purple = color.rgb(188, 96, 208)
 
-print(purple)
 # bright icon colours
 bold = [orange, blue, red, green, yellow, purple]
-#
 
 
 # --orange: #f68704;

@@ -470,6 +470,26 @@ def warning(title, text):
     message(title, text)
 
 
+def load_font(font_file):
+    try:
+        return pixel_font.load(font_file)
+    except OSError:
+        return pixel_font.load(f"/rom/fonts/{font_file}.ppf")
+
+
+class ROMFonts:
+    def __getattr__(self, key):
+        try:
+            return pixel_font.load(f"/rom/fonts/{key}.ppf")
+        except OSError:
+            raise AttributeError(f"Font {key} not found!")
+
+    def __dir__(self):
+        return [f[:-4] for f in os.listdir("/rom/fonts") if f.endswith(".ppf")]
+
+
+rom_font = ROMFonts()
+
 # RTC
 rtc = pcf85063a.PCF85063A(machine.I2C())
 
@@ -494,8 +514,8 @@ picovector.default_target = screen
 
 ASSETS = "/system/assets"
 LIGHT_SENSOR = machine.ADC(machine.Pin("LIGHT_SENSE"))
-DEFAULT_FONT = pixel_font.load(f"{ASSETS}/fonts/sins.ppf")
-ERROR_FONT = pixel_font.load(f"{ASSETS}/fonts/desert.ppf")
+DEFAULT_FONT = rom_font.sins
+ERROR_FONT = rom_font.desert
 
 FG = color.rgb(255, 255, 255)
 BG = color.rgb(0, 0, 0)
@@ -517,7 +537,7 @@ _current_mode = LORES
 
 
 # Build in some badgeware helpers, so we don't have to "bw.lores" etc
-for k in ("mode", "HIRES", "LORES", "SpriteSheet"):
+for k in ("mode", "HIRES", "LORES", "SpriteSheet", "load_font", "rom_font"):
     setattr(builtins, k, locals()[k])
 
 
