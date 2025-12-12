@@ -4,6 +4,7 @@ import os
 import io as stream
 import sys
 import time
+import random
 import pcf85063a
 
 import machine
@@ -20,11 +21,7 @@ for led in _CASE_LIGHTS:
     led.freq(500)
 
 
-def set_case_led(led=None, value=None):
-
-    if led is None or value is None:
-        raise ValueError("LED and brightness must be provided!")
-
+def set_case_led(led, value):
     if not isinstance(led, int):
         raise TypeError("LED must be a number between 0 and 3")
 
@@ -127,6 +124,19 @@ def clamp(v, vmin, vmax):
     return max(vmin, min(v, vmax))
 
 
+def rnd(v1, v2=None):
+    if v2:
+      return random.randint(v1, v2)
+    else:
+      return random.randint(0, v1)
+
+def frnd(v1, v2=None):
+    if v2:
+      return random.uniform(v1, v2)
+    else:
+      return random.uniform(0, v1)
+
+
 def file_exists(path):
     try:
         os.stat(path)
@@ -186,112 +196,6 @@ class AnimatedSprite:
 
     def count(self):
         return len(self.frames)
-
-
-class BitmapFont:
-    def __init__(self, file, char_width, char_height):
-        self.image = image.load(file)
-        self.cw = char_width
-        self.ch = char_height
-
-        columns = self.image.width / self.cw
-        rows = self.image.height / self.ch
-
-        self.chars = []
-        for y in range(rows):
-            for x in range(columns):
-                self.chars.append(
-                    self.image.window(self.cw * x, self.ch * y, self.cw, self.ch)
-                )
-
-    def text(self, image, x, y, text, max_width=None, only_measure=False):
-        cx, cy = 0, 0  # caret pos
-        maxx, maxy = 0, 0
-
-        lines = text.splitlines()
-        for line in lines:
-            words = line.split(" ")
-            for word in words:
-                # work out length of word in pixels
-                wl = len(word) * self.cw
-
-                # move to next line if exceeds max width
-                if max_width and cx + wl > max_width:
-                    cx = 0
-                    cy += self.ch - 2
-
-                # render characters in word
-                for char in word:
-                    char_idx = ord(char)
-                    if not only_measure and char_idx < len(self.chars):
-                        image.blit(self.chars[char_idx], cx + x, cy + y)
-                    cx += self.cw
-
-                    if max_width and cx > max_width:
-                        cx = 0
-                        cy += self.ch - 2
-
-                # once the word has been rendered update our min and max cursor values
-                maxx = max(maxx, cx)
-                maxy = max(maxy, cy + self.ch - 2)
-
-                cx += self.cw / 3
-
-            cx = 0
-            cy += self.ch - 2
-
-        return maxx, maxy
-
-    def measure(self, text, max_width=None):
-        return self.text(None, 0, 0, text, max_width=max_width, only_measure=True)
-
-
-class Particle:
-    def __init__(self, position, motion, user=None):
-        self.position = position
-        self.motion = motion
-        self.user = user
-        self.created_at = time.ticks_ms()
-
-    def age(self):
-        return (time.ticks_ms() - self.created_at) / 1000
-
-
-class ParticleGenerator:
-    def __init__(self, gravity, max_age=2):
-        self.gravity = gravity
-        self.max_age = max_age
-        self.last_tick_ms = time.ticks_ms()
-        self.particles = []
-
-    def spawn(self, position, motion, user=None):
-        self.particles.append(Particle(position, motion, user))
-
-    def youngest(self):
-        return self.particles[-1] if len(self.particles) > 0 else None
-
-    # update all particle locations and age out particles that have expired
-    def tick(self):
-        # expire aged particles
-        self.particles = [
-            particle for particle in self.particles if particle.age() < self.max_age
-        ]
-
-        # update particles
-        dt = (time.ticks_ms() - self.last_tick_ms) / 1000
-        for particle in self.particles:
-            particle.position = (
-                particle.position[0] + (particle.motion[0] * dt),
-                particle.position[1] + (particle.motion[1] * dt),
-            )
-
-            # apply "gravity" force to motion vectors
-            particle.motion = (
-                (particle.motion[0] + self.gravity[0] * dt),
-                (particle.motion[1] + self.gravity[1] * dt),
-            )
-
-        self.last_tick_ms = time.ticks_ms()
 
 
 # show the current free memory including the delta since last time the
@@ -457,20 +361,6 @@ class State:
         return False
 
 
-MAX_BACKLIGHT_SAMPLES = 30
-backlight_smoothing = [0.0 for _ in range(MAX_BACKLIGHT_SAMPLES)]
-backlight_smoothing_idx = 0
-
-
-def update_backlight():
-    global backlight_smoothing_idx
-    light = get_light() / 6553
-    backlight_smoothing[backlight_smoothing_idx] = min(1.0, max(0.5, light))
-    backlight_smoothing_idx += 1
-    backlight_smoothing_idx %= MAX_BACKLIGHT_SAMPLES
-    display.backlight(sum(backlight_smoothing) / MAX_BACKLIGHT_SAMPLES)
-
-
 def mode(mode):
     global _current_mode
 
@@ -489,7 +379,6 @@ def mode(mode):
     picovector.default_target = screen
 
     return True
-
 
 
 def run(update, init=None, on_exit=None, auto_clear=True):
@@ -627,20 +516,8 @@ conversion_factor = 3.3 / 65536
 _current_mode = LORES
 
 
-# TODO: Add these to `brush` ?
-class Colors:
-    black = color.rgb(0, 0, 0)
-    white = color.rgb(255, 255, 255)
-    red = color.rgb(255, 0, 0)
-    yellow = color.rgb(255, 255, 0)
-    green = color.rgb(0, 255, 0)
-    teal = color.rgb(0, 255, 255)
-    blue = color.rgb(0, 0, 255)
-    purple = color.rgb(255, 0, 255)
-
-
 # Build in some badgeware helpers, so we don't have to "bw.lores" etc
-for k in ("mode", "HIRES", "LORES", "SpriteSheet", "Colors"):
+for k in ("mode", "HIRES", "LORES", "SpriteSheet"):
     setattr(builtins, k, locals()[k])
 
 
