@@ -126,7 +126,7 @@ def update():
 
     if flip:
         # create a spin animation that runs over 100ms
-        speed = 90
+        speed = 95
         frame = io.ticks - flip_start
 
         # calculate the width of the tile during this part of the animation
