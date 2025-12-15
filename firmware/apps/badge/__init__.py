@@ -70,7 +70,7 @@ def shadow_text(text, x, y):
 
 def center_text(text, y):
     w, _ = screen.measure_text(text)
-    shadow_text(text, 80 - (w / 2), y)
+    shadow_text(text, (screen.width / 2) - (w / 2), y)
 
 
 def init():
