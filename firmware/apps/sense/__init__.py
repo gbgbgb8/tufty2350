@@ -19,10 +19,10 @@ from breakout_ltr559 import BreakoutLTR559
 from lsm6ds3 import LSM6DS3, NORMAL_MODE_104HZ
 from machine import I2C
 
-BACKGROUND = color.rgb(255, 255, 255)
+BACKGROUND = brush.pattern(color.rgb(255, 255, 255), color.rgb(188, 211, 224), 26)
 
 font_absolute = pixel_font.load("/system/assets/fonts/absolute.ppf")
-font_memo = pixel_font.load("/system/assets/fonts/memo.ppf")
+font_fear = pixel_font.load("/system/assets/fonts/fear.ppf")
 font_winds = pixel_font.load("/system/assets/fonts/winds.ppf")
 
 screen.antialias = image.X2
@@ -46,7 +46,7 @@ MOVE_COLOUR = (120, 170, 120)
 
 # viewport for the full screen window
 # we'll draw our sensor output to this image and blit it within a "window"
-win = image(0, 0, screen.width - 27, screen.height - 28)
+win = image(screen.width - 27, screen.height - 28)
 
 
 def centre_text(text, w, y, image=win):
@@ -347,16 +347,26 @@ def update():
     screen.pen = BACKGROUND
     screen.shape(shape.rounded_rectangle(0, 0, screen.width, screen.height, 5))
 
-    screen.font = font_memo
-    screen.pen = color.rgb(175, 175, 175)
-    screen.shape(shape.rounded_rectangle(0, 0, screen.width, 20, 5, 5, 0, 0))
-    screen.pen = color.rgb(0, 0, 0)
-    screen.text("Sensor Suite", 36 + 1, 1 + 1)
+    screen.font = font_fear
     screen.pen = color.rgb(255, 255, 255)
-    screen.text("Sensor Suite", 36, 1)
+    screen.shape(shape.rounded_rectangle(0, 0, screen.width, 20, 5, 5, 0, 0))
+    screen.pen = color.rgb(75, 78, 83)
+    screen.text("Sensor Suite", 25, 1)
 
-    screen.pen = color.rgb(155, 155, 155)
+    screen.pen = color.rgb(188, 211, 224)
     screen.shape(shape.line(0, 19, screen.width, 19, 1))
+
+    # red margin line
+    screen.pen = color.rgb(188, 30, 30, 100)
+    screen.shape(shape.line(20, 0, 20, screen.height, 2))
+
+    # margin holes
+    screen.pen = color.rgb(100, 100, 100)
+    screen.shape(shape.circle(9, 39, 3.8))
+    screen.shape(shape.circle(9, 99, 3.8))
+    screen.pen = color.rgb(150, 150, 150)
+    screen.shape(shape.circle(10, 40, 3))
+    screen.shape(shape.circle(10, 100, 3))
 
     Widget.update()
 
