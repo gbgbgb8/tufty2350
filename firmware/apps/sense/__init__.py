@@ -370,7 +370,6 @@ def update():
 
     Widget.update()
 
-    io.poll()
     if not Widget.is_fullscreen():
         if io.BUTTON_A in io.pressed:
             if Widget.selected > 0:
