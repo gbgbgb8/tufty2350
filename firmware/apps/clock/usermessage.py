@@ -1,11 +1,9 @@
 # A little library of methods to display text on the screen in mildly fancy ways.
 
-from badgeware import brushes, PixelFont, screen
-
-black = brushes.color(0, 0, 0)
-white = brushes.color(235, 245, 255)
-small_font = PixelFont.load("/system/assets/fonts/ark.ppf")
-large_font = PixelFont.load("/system/assets/fonts/absolute.ppf")
+black = color.rgb(0, 0, 0)
+white = color.rgb(235, 245, 255)
+small_font = pixel_font.load("/system/assets/fonts/ark.ppf")
+large_font = pixel_font.load("/system/assets/fonts/absolute.ppf")
 
 
 def center_text(text, y):
@@ -28,7 +26,7 @@ def wrap_text(text, x, y):
 def stretch_text(text, x, y, distance, current_brush):
     # Stretch text across a given distance
 
-    screen.brush = current_brush
+    screen.pen = current_brush
     text_dims = screen.measure_text(text)
     width = text_dims[0]
     height = text_dims[1]
@@ -47,10 +45,10 @@ def stretch_text(text, x, y, distance, current_brush):
 def user_message(caption, line1, line2=None, line3=None, line4=None, line5=None, line6=None):
     # A simple message screen with a heading and up to six lines of text.
 
-    screen.brush = black
+    screen.pen = black
     screen.clear()
     screen.font = large_font
-    screen.brush = white
+    screen.pen = white
     center_text(caption, 5)
 
     screen.font = small_font
@@ -71,10 +69,10 @@ def user_message(caption, line1, line2=None, line3=None, line4=None, line5=None,
 def bullet_list(caption, bullet1, bullet2=None, bullet3=None):
     # A simple message screen with three bullet points.
 
-    screen.brush = black
+    screen.pen = black
     screen.clear()
     screen.font = large_font
-    screen.brush = white
+    screen.pen = white
     center_text(caption, 5)
 
     screen.text("1:", 10, 23)

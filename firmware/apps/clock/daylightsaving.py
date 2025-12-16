@@ -66,13 +66,19 @@ class DaylightSaving:
     def isleapyear(self, year):
         return (year % 4 == 0 and year % 100 != 0) or year % 400 == 0
 
+    def increment_dom(self, d):
+        return d + 1 if d < 6 else 0
+
+    def decrement_dom(self, d):
+        return d - 1 if d > 0 else 6
+
     def dayofmonth(self, week, month, weekday, day, year):
         # Get the first or last day of the month
         t = utime.mktime((year, month, day, 0, 0, 0, 0, 0))
         # Get the weekday of the first or last day of the month
         d = utime.localtime(t)[6]
-        increment = lambda d: d + 1 if d < 6 else 0
-        decrement = lambda d: d - 1 if d > 0 else 6
+        increment = self.increment_dom
+        decrement = self.decrement_dom
         while d != weekday:
             # Increment if start of month else decrement
             day = day + 1 if week else day - 1
