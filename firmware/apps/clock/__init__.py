@@ -43,7 +43,7 @@ ticks_start = None
 state = {
     "dark_mode": True,
     "clock_style": 3,
-    "colour_scheme": 1,
+    "colour_scheme": 5,
     "first_run": True
 }
 
