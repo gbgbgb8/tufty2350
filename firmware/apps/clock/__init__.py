@@ -740,32 +740,32 @@ def update():
             write_settings()
 
     # Next we check if anything's been pressed before choosing what to display.
-    elif io.BUTTON_UP in io.pressed:
+    if io.BUTTON_UP in io.pressed:
         state["dark_mode"] = not state["dark_mode"]
         write_settings()
         switch_palette()
 
-    elif io.BUTTON_DOWN in io.pressed:
+    if io.BUTTON_DOWN in io.pressed:
         state["colour_scheme"] += 1
         if state["colour_scheme"] > 8:
             state["colour_scheme"] = 1
         write_settings()
         switch_palette()
 
-    elif io.BUTTON_C in io.pressed:
+    if io.BUTTON_C in io.pressed:
         state["clock_style"] += 1
         if state["clock_style"] > 4:
             state["clock_style"] = 1
         write_settings()
 
-    elif io.BUTTON_A in io.pressed:
+    if io.BUTTON_A in io.pressed:
         state["clock_style"] -= 1
         if state["clock_style"] < 1:
             state["clock_style"] = 4
         write_settings()
 
     # If the year in the RTC is 2021 or earlier, we need to sync so it has the same effect as pressing B.
-    elif io.BUTTON_B in io.pressed or time.gmtime()[0] <= 2021 and clock_state == ClockState.Running:
+    if io.BUTTON_B in io.pressed or time.gmtime()[0] <= 2021 and clock_state == ClockState.Running:
         user_message("Updating...", ["Updating time", "from NTP server...", "Getting WiFi details..."])
         clock_state = ClockState.ConnectWiFi
 
@@ -778,7 +778,7 @@ def update():
     # so anything we put on the display will be overwritten by anything we put further down.
     # By using states each step of the process happens on a different loop through Update(),
     # so we can display a message for each step.
-    elif clock_state == ClockState.Running:
+    if clock_state == ClockState.Running:
         display_time()
 
     elif clock_state == ClockState.UpdateTime:
