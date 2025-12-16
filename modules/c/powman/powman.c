@@ -380,8 +380,6 @@ static inline void latch_inputs(void) {
 static inline void setup_system(void) {
     i2c_enable();
     pcf85063_disable_interrupt();
-    vreg_set_voltage(VREG_VOLTAGE_1_20);
-    sleep_ms(10);
 }
 
 static int64_t alarm_clear_double_tap(alarm_id_t id, __unused void *user_data) {
