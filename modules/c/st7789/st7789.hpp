@@ -41,7 +41,7 @@ namespace pimoroni {
     // pio stuff
     PIO parallel_pio = pio1;
     uint32_t startup_hz = 0;
-    uint32_t max_pio_clk = 45 * MHZ;
+    uint32_t max_pio_clk = 44 * MHZ;
 
     // Regular commands
     uint parallel_sm;
