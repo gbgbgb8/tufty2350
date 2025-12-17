@@ -75,6 +75,13 @@ mp_obj_t st7789_set_backlight(mp_obj_t self_in, mp_obj_t value_in) {
     return mp_const_none;
 }
 
+mp_obj_t st7789_set_max_pio_clock(mp_obj_t self_in, mp_obj_t value_in) {
+    (void)self_in;
+    display->set_max_pio_clock(mp_obj_get_uint(value_in));
+    return mp_const_none;
+}
+
+
 mp_int_t st7789_get_framebuffer(mp_obj_t self_in, mp_buffer_info_t *bufinfo, mp_uint_t flags) {
     (void)self_in;
     (void)flags;

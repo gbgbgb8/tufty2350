@@ -41,7 +41,7 @@ namespace pimoroni {
     // pio stuff
     PIO parallel_pio = pio1;
     uint32_t startup_hz = 0;
-    const uint32_t max_pio_clk = 60 * MHZ;
+    uint32_t max_pio_clk = 45 * MHZ;
 
     // Regular commands
     uint parallel_sm;
@@ -79,7 +79,7 @@ namespace pimoroni {
 
       // Determine clock divider
       startup_hz = clock_get_hz(clk_sys);
-      sm_config_set_clkdiv(&c, fmax(1.0f, ceil(float(startup_hz) / max_pio_clk)));
+      sm_config_set_clkdiv(&c, fmax(1.0f, float(startup_hz) / max_pio_clk));
 
       pio_sm_init(parallel_pio, parallel_sm, parallel_offset, &c);
       pio_sm_set_enabled(parallel_pio, parallel_sm, true);
@@ -110,6 +110,7 @@ namespace pimoroni {
     void set_backlight(uint8_t brightness);
     uint32_t *get_framebuffer();
     void command(uint8_t command, size_t len = 0, const char *data = NULL);
+    void set_max_pio_clock(uint32_t hz);
 
   private:
     void init();

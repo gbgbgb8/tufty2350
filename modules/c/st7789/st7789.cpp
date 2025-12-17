@@ -189,7 +189,7 @@ namespace pimoroni {
 
     if (sys_clk_hz != startup_hz) {
       startup_hz = sys_clk_hz;
-      pio_sm_set_clkdiv(parallel_pio, parallel_sm, fmax(1.0f, ceil(float(sys_clk_hz) / max_pio_clk)));
+      pio_sm_set_clkdiv(parallel_pio, parallel_sm, fmax(1.0f, float(sys_clk_hz) / max_pio_clk));
     }
 
     wait_for_dma();
@@ -258,5 +258,10 @@ namespace pimoroni {
     channel_config_set_bswap(&config, false);
     channel_config_set_dreq(&config, pio_get_dreq(parallel_pio, parallel_sm, true));
     dma_channel_configure(st_dma, &config, &parallel_pio->txf[parallel_sm], NULL, 0, false);
+  }
+
+  void ST7789::set_max_pio_clock(uint32_t hz) {
+    max_pio_clk = hz;
+    startup_hz = 0;
   }
 }
