@@ -361,18 +361,18 @@ class State:
         return False
 
 
-def mode(mode):
+def mode(mode, force=False):
     global _current_mode
 
-    if mode == _current_mode:
+    if mode == _current_mode and not force:
         return False
 
     _current_mode = mode
 
     # TODO: Mutate the existing screen object?
-    font = screen.font
-    brush = screen.pen
-    resolution = (320, 240) if HIRES else (160, 120)
+    font = getattr(getattr(builtins, "screen", None), "font", None)
+    brush = getattr(getattr(builtins, "screen", None), "pen", None)
+    resolution = (320, 240) if mode == HIRES else (160, 120)
     setattr(builtins, "screen", image(*resolution, memoryview(display)))
     screen.font = font if font is not None else DEFAULT_FONT
     screen.pen = brush if brush is not None else BG
@@ -506,9 +506,6 @@ for k, v in picovector.__dict__.items():
     if not k.startswith("__"):
         setattr(builtins, k, v)
 
-setattr(builtins, "screen", image(160, 120, memoryview(display)))
-picovector.default_target = screen
-
 
 ASSETS = "/system/assets"
 LIGHT_SENSOR = machine.ADC(machine.Pin("LIGHT_SENSE"))
@@ -532,6 +529,8 @@ LORES = 0
 conversion_factor = 3.3 / 65536
 
 _current_mode = LORES
+
+mode(LORES, True)
 
 
 # Build in some badgeware helpers, so we don't have to "bw.lores" etc
