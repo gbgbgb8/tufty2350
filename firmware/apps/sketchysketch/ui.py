@@ -96,8 +96,8 @@ def draw_cursor(cursor):
     cx = int(cursor[0] + canvas_area[0])
     cy = int(cursor[1] + canvas_area[1])
     # draw the current cursor
-    i = (math.sin(io.ticks / 250) * 127) + 127
-    screen.pen = brush.xor(i, i, i)
+    i = (math.sin(io.ticks / 120) * 60) + 60
+    screen.pen = color.rgb(i, i, i)
     screen.shape(shape.rectangle(cx + 2, cy, 2, 1))
     screen.shape(shape.rectangle(cx - 3, cy, 2, 1))
     screen.shape(shape.rectangle(cx, cy + 2, 1, 2))
