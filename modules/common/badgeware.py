@@ -286,18 +286,6 @@ def get_battery_level():
     return min(100, max(0, round(123 - (123 / pow((1 + pow((voltage / 3.2), 80)), 0.165)))))
 
 
-def get_battery_level():
-    # Use the battery voltage to estimate the remaining percentage
-
-    # Get the average reading over 20 samples from our VBAT and VREF
-    voltage = sample_adc_u16(VBAT_SENSE, 10) * conversion_factor * 2
-    vref = sample_adc_u16(SENSE_1V1, 10) * conversion_factor
-    voltage = voltage / vref * 1.1
-
-    # Return the battery level as a percentage
-    return min(100, max(0, round(123 - (123 / pow((1 + pow((voltage / 3.2), 80)), 0.165)))))
-
-
 def get_disk_usage(mountpoint="/"):
     # f_bfree and f_bavail should be the same?
     # f_files, f_ffree, f_favail and f_flag are unsupported.
@@ -477,8 +465,8 @@ class ROMFonts:
     def __getattr__(self, key):
         try:
             return pixel_font.load(f"/rom/fonts/{key}.ppf")
-        except OSError:
-            raise AttributeError(f"Font {key} not found!")
+        except OSError as e:
+            raise AttributeError(f"Font {key} not found!") from e
 
     def __dir__(self):
         return [f[:-4] for f in os.listdir("/rom/fonts") if f.endswith(".ppf")]
