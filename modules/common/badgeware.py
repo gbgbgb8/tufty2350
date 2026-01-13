@@ -374,6 +374,7 @@ def run(update, init=None, on_exit=None, auto_clear=True):
     try:
         if init:
             init()
+            gc.collect()
         try:
             while True:
                 if auto_clear:
@@ -381,14 +382,15 @@ def run(update, init=None, on_exit=None, auto_clear=True):
                     screen.pen = FG
                 io.poll()
                 if (result := update()) is not None:
+                    gc.collect()
                     return result
-                gc.collect()
                 display.update(screen.width == 320)
         except KeyboardInterrupt:
             pass
         finally:
             if on_exit:
                 on_exit()
+                gc.collect()
 
     except Exception as e:  # noqa: BLE001
         warning("Error!", get_exception(e))
