@@ -1,5 +1,3 @@
-# This file is copied from /system/main.py to /main.py on first run
-
 import sys
 import os
 from badgeware import run
@@ -33,6 +31,8 @@ if not SKIP_CINEMATIC:
 
     gc.collect()
 
+standard_modules = [k for k in sys.modules.keys()]
+
 menu = __import__("/system/apps/menu")
 
 app = run(menu.update)
@@ -42,9 +42,10 @@ if sys.path[0].startswith("/system/apps"):
 
 del menu
 
-# make sure these can be re-imported by the app
-del sys.modules["ui"]
-del sys.modules["icon"]
+# make any module names imported by menu are freed for apps
+for key, module in sys.modules.items():
+    if key not in standard_modules:
+        del sys.modules[key]
 
 gc.collect()
 
@@ -69,3 +70,4 @@ if app is not None:
 
     # Unreachable, in theory!
     machine.reset()
+
