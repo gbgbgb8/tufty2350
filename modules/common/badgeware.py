@@ -75,49 +75,105 @@ def time_from_ntp():
     localtime_to_rtc()
 
 
-# takes a text string (that may include newline characters) and performs word
-# wrapping. returns a line of lines and their widths as a result.
-def wrap_and_measure(image, text, size, max_width):
-    result = []
+def text_tokenise(image, text, glyph_renderers=None):
+    WORD = 1
+    SPACE = 2
+    LINE_BREAK = 3
+
+    glyph_renderers = glyph_renderers or {}
+    tokens = []
+
     for line in text.splitlines():
-        # if max_width is specified then perform word wrapping
-        if max_width:
-            # setup a start and end cursor to traverse the text
-            start, end = 0, 0
-            last_width = 0
-            i = 0
-            while True:
-                i += 1
-                # search for the next space
-                end = line.find(" ", end)
-                if end == -1:
-                    end = len(line)
+        start, end = 0, 0
+        i = 0
+        while end < len(line):
+            # check for a glyph_renderer
+            if glyph_renderers and line.find("[", start) == start:
+                end = line.find("]", start)
+                # look ahead to see if this is an escape code
+                glyph_renderer = line[start + 1:end]
+                code, parameters = glyph_renderer.split(":")
+                parameters = parameters.split(",")
 
-                # measure the text up to the space
-                width, _ = image.measure_text(line[start:end], size)
-                if width >= max_width:
-                    # line exceeded max length
-                    new_end = line.rfind(" ", start, end)
-                    if new_end == -1:
-                        result.append((line[start:end], last_width))
-                        start = end + 1
-                    else:
-                        result.append((line[start:new_end], last_width))
-                        start = new_end + 1
-                elif end == len(line):
-                    # reached the end of the string
-                    result.append((line[start:end], width))
-                    break
+                if code in glyph_renderers:
+                    w = glyph_renderers[code](None, parameters, None, True)
+                    tokens.append((glyph_renderers[code], w, tuple(parameters)))
 
-                # step past the last space
-                end += 1
-                last_width = width
+                start = end + 1
+                continue
+
+            i += 1
+
+            # search for the next space
+            end = line.find(" ", start)
+            if end == -1: end = len(line)
+
+            if glyph_renderers:
+                glyph_renderer_start = line.find("[", start)
+                if glyph_renderer_start != -1 and glyph_renderer_start < end:
+                    end = glyph_renderer_start
+
+            # measure the text up to the space
+            if end > start:
+                width, _ = image.measure_text(line[start:end])
+                tokens.append((WORD, width, line[start:end]))
+
+            start = end
+            if end < len(line) and line[end] == " ":
+                tokens.append((SPACE,))
+                start += 1
+
+
+        tokens.append((LINE_BREAK,))
+
+    return tokens
+
+
+def text_draw(image, text, bounds=None, line_spacing=1, word_spacing=1):
+    WORD = 1
+    SPACE = 2
+    LINE_BREAK = 3
+
+    if bounds is None:
+        bounds = rect(0, 0, image.width, image.height)
+    else:
+        bounds = rect(int(bounds.x), int(bounds.y), int(bounds.w), int(bounds.h))
+
+    if isinstance(text, str):
+        tokens = text_tokenise(image, text)
+    else:
+        tokens = text
+
+    old_clip = image.clip
+    image.clip = bounds
+
+    c = vec2(bounds.x, bounds.y)
+    b = rect()
+    for token in tokens:
+        if token[0] == WORD:
+            if c.x + token[1] > bounds.x + bounds.w:
+                c.x = bounds.x
+                c.y += image.font.height * line_spacing
+            image.text(token[2], c.x, c.y)
+            c.x += token[1]
+        elif token[0] == SPACE:
+            c.x += (image.font.height / 3) * word_spacing
+        elif token[0] == LINE_BREAK:
+            c.x = bounds.x
+            c.y += image.font.height * line_spacing
         else:
-            # no wrapping needed, just return the original line with its width
-            width, _ = image.measure_text(line, size)
-            result.append((line, width))
+            if c.x + token[1] > bounds.x + bounds.w:
+                c.x = bounds.x
+                c.y += image.font.height * line_spacing
 
-    return result
+            token[0](image, token[2], c, False)
+            c.x += token[1]
+
+        b.w = max(b.w, c.x)
+        b.h = max(b.h, c.y)
+
+    image.clip = old_clip
+    return b
 
 
 def clamp(v, vmin, vmax):
@@ -385,8 +441,6 @@ def run(update, init=None, on_exit=None, auto_clear=True):
                     gc.collect()
                     return result
                 display.update(screen.width == 320)
-        except KeyboardInterrupt:
-            pass
         finally:
             if on_exit:
                 on_exit()
@@ -405,8 +459,8 @@ def get_exception(e):
 
 
 # Draw an overlay box with a given message within it
-def message(title, text, window=None):
-    error_window = window or screen.window(0, 0, screen.width, screen.height)
+def message(title, msg, window=None):
+    error_window = window or screen.window(5, 5, screen.width - 10, screen.height - 10)
     error_window.font = DEFAULT_FONT
 
     # Draw a light grey background
@@ -414,33 +468,51 @@ def message(title, text, window=None):
         0, 0, error_window.width, error_window.height, 5, 5, 5, 5
     )
     heading = shape.rounded_rectangle(0, 0, error_window.width, 12, 5, 5, 0, 0)
-    error_window.pen = color.rgb(100, 100, 100, 200)
+    error_window.pen = color.rgb(100, 100, 100, 240)
     error_window.shape(background)
 
-    error_window.pen = color.rgb(255, 100, 100, 200)
+    error_window.pen = color.rgb(255, 100, 100, 240)
     error_window.shape(heading)
 
     error_window.pen = color.rgb(50, 100, 50)
     tw = 35
     error_window.shape(
         shape.rounded_rectangle(
-            error_window.width - tw - 10, error_window.height - 12, tw, 12, 3, 3, 0, 0
+            error_window.width - tw - 36, error_window.height - 12, tw, 12, 3, 3, 0, 0
         )
     )
 
     error_window.pen = color.rgb(255, 200, 200)
     error_window.text(
-        "Okay", error_window.width - tw + 5 - 10, error_window.height - 12
+        "Okay", error_window.width - tw + 5 - 36, error_window.height - 12
     )
     y = 0
     error_window.text(title, 5, y)
     y += 17
 
     error_window.pen = color.rgb(200, 200, 200)
-    text_lines = wrap_and_measure(error_window, text, 12, error_window.width - 10)
-    for line, _width in text_lines:
-        error_window.text(line, 5, y)
-        y += 10
+    bounds = error_window.clip
+    bounds.y += 12
+    bounds.h -= 32
+    bounds.x += 5
+    bounds.w -= 10
+
+    text_draw(error_window, msg, bounds=bounds)
+
+
+def fatal_error(title, error):
+    if not isinstance(error, str):
+        error = get_exception(error)
+    print(f"- ERROR: {error}")
+
+    if _current_mode == LORES:
+        contents = image(160, 120)
+        contents.blit(screen, vec2(0, 0))
+        mode(HIRES)
+        screen.blit(contents, rect(0, 0, 320, 240))
+        del contents
+
+    message(title, error)
 
     display.update(screen.width == 320)
     while True:
@@ -450,10 +522,7 @@ def message(title, text, window=None):
     while io.pressed:
         io.poll()
 
-
-def warning(title, text):
-    print(f"- ERROR: {text}")
-    message(title, text)
+    machine.reset()
 
 
 def load_font(font_file):
@@ -531,4 +600,4 @@ builtins.bw = sys.modules["badgeware"]
 
 
 if __name__ == "__main__":
-    warning("Hello from badgeware.py", "Why are you running me?")
+    fatal_error("Hello from badgeware.py", "Why are you running me?")

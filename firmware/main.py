@@ -1,11 +1,8 @@
 import sys
 import os
-from badgeware import run
+from badgeware import run, fatal_error
 import machine
 import gc
-# import powman
-
-SKIP_CINEMATIC = True   # powman.get_wake_reason() == powman.WAKE_WATCHDOG
 
 running_app = None
 
@@ -19,21 +16,12 @@ def quit_to_launcher(pin):
     machine.reset()
 
 
-if not SKIP_CINEMATIC:
-    startup = __import__("/system/apps/startup")
-
-    run(startup.update)
-
-    if sys.path[0].startswith("/system/apps"):
-        sys.path.pop(0)
-
-    del startup
-
-    gc.collect()
-
 standard_modules = [k for k in sys.modules.keys()]
 
-menu = __import__("/system/apps/menu")
+try:
+    menu = __import__("/system/apps/menu")
+except Exception as e:  # noqa: BLE001
+    fatal_error("Error!", e)
 
 app = run(menu.update)
 
@@ -60,14 +48,13 @@ if app is not None:
     )
 
     sys.path.insert(0, app)
-    os.chdir(app)
-
-    running_app = __import__(app)
-
-    getattr(running_app, "init", lambda: None)()
+    try:
+        os.chdir(app)
+        running_app = __import__(app)
+        getattr(running_app, "init", lambda: None)()
+    except Exception as e:  # noqa: BLE001
+        fatal_error("Error!", e)
 
     run(running_app.update)
 
-    # Unreachable, in theory!
     machine.reset()
-
