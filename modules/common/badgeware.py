@@ -75,12 +75,20 @@ def time_from_ntp():
     localtime_to_rtc()
 
 
+def pen_glyph_renderer(image, parameters, cursor, measure):
+    if measure:
+        return 0
+    pen(*(int(c) for c in parameters))
+
+
 def text_tokenise(image, text, glyph_renderers=None):
     WORD = 1
     SPACE = 2
     LINE_BREAK = 3
 
-    glyph_renderers = glyph_renderers or {}
+    default_glyph_renderers = {"pen": pen_glyph_renderer}
+    default_glyph_renderers.update(glyph_renderers or {})
+
     tokens = []
 
     for line in text.splitlines():
@@ -88,30 +96,28 @@ def text_tokenise(image, text, glyph_renderers=None):
         i = 0
         while end < len(line):
             # check for a glyph_renderer
-            if glyph_renderers and line.find("[", start) == start:
-                end = line.find("]", start)
+            if default_glyph_renderers and line.find("[", start) == start:
+                glyph_end = line.find("]", start)
                 # look ahead to see if this is an escape code
-                glyph_renderer = line[start + 1:end]
-                code, parameters = glyph_renderer.split(":")
-                parameters = parameters.split(",")
+                glyph_renderer = line[start + 1:glyph_end]
+                parameters = []
+                if ":" in glyph_renderer:
+                    code, parameters = glyph_renderer.split(":")
+                    parameters = parameters.split(",")
+                else:
+                    code = glyph_renderer
 
-                if code in glyph_renderers:
-                    w = glyph_renderers[code](None, parameters, None, True)
-                    tokens.append((glyph_renderers[code], w, tuple(parameters)))
-
-                start = end + 1
-                continue
+                if code in default_glyph_renderers:
+                    w = default_glyph_renderers[code](None, parameters, None, True)
+                    tokens.append((default_glyph_renderers[code], w, tuple(parameters)))
+                    start = glyph_end + 1
+                    continue
 
             i += 1
 
             # search for the next space
             end = line.find(" ", start)
             if end == -1: end = len(line)
-
-            if glyph_renderers:
-                glyph_renderer_start = line.find("[", start)
-                if glyph_renderer_start != -1 and glyph_renderer_start < end:
-                    end = glyph_renderer_start
 
             # measure the text up to the space
             if end > start:
@@ -122,7 +128,6 @@ def text_tokenise(image, text, glyph_renderers=None):
             if end < len(line) and line[end] == " ":
                 tokens.append((SPACE,))
                 start += 1
-
 
         tokens.append((LINE_BREAK,))
 
@@ -591,7 +596,7 @@ mode(LORES, True)
 
 
 # Build in some badgeware helpers, so we don't have to "bw.lores" etc
-for k in ("mode", "HIRES", "LORES", "SpriteSheet", "load_font", "rom_font"):
+for k in ("mode", "HIRES", "LORES", "SpriteSheet", "load_font", "rom_font", "text_tokenise", "text_draw"):
     setattr(builtins, k, locals()[k])
 
 
