@@ -377,6 +377,9 @@ def update():
 
     draw_background()
 
+    if Widget.is_fullscreen():
+        screen.blur(0.1)
+
     Widget.update()
 
     if not Widget.is_fullscreen():
