@@ -8,13 +8,13 @@ def word_wrap(text, font, w, h):
     total_h = y_height + 0
 
     for word in words:
-        newline = currentline + word + " "
+        newline = f"{currentline}{word} "
         text_w, text_h = screen.measure_text(newline)
         if text_w <= w:
             currentline = newline
         else:
             lines.append(currentline)
-            currentline = word + " "
+            currentline = f"{word} "
             total_h += 0 + text_h
         if total_h > h:
             break
@@ -84,5 +84,5 @@ class Cutscene:
             return True
 
     def draw(self):
-        screen_image = image.load("assets/" + self.screens[self.index].image + ".png")
+        screen_image = image.load(f"assets/{self.screens[self.index].image}.png")
         self.screens[self.index].draw(screen_image)

@@ -6,7 +6,7 @@ os.chdir("/system/apps/30min")
 
 import math
 import random
-from badgeware import run, SpriteSheet
+from badgeware import run
 import cutscene
 import time
 
@@ -14,7 +14,7 @@ hud = image.load("assets/hud.png")
 win = image.load("assets/win.png")
 game_over = SpriteSheet("assets/game_over.png", 5, 1)
 
-ark_font = pixel_font.load("/system/assets/fonts/ark.ppf")
+ark_font = rom_font.ark
 screen.font = ark_font
 screen.antialias = image.OFF
 
@@ -78,9 +78,9 @@ def init_game():
     global z_increment, z_offset, player, background, wall_tex, obst_tex, wall_variation, intro_cutscene, level_segments_passed, level_segments_total, congrat_choice, start_screen, fade_counter
     level_seed = random.randint(0, len(levels) - 1)
     current_level = levels[level_seed]
-    background = image.load("assets/{}_bg.png".format(current_level.texture_pack))
-    wall_tex = SpriteSheet("assets/{}_wall.png".format(current_level.texture_pack), 8, 1)
-    obst_tex = SpriteSheet("assets/{}_obst.png".format(current_level.texture_pack), 5, 7)
+    background = image.load(f"assets/{current_level.texture_pack}_bg.png")
+    wall_tex = SpriteSheet(f"assets/{current_level.texture_pack}_wall.png", 8, 1)
+    obst_tex = SpriteSheet(f"assets/{current_level.texture_pack}_obst.png", 5, 7)
     start_screen = True
     fade_counter = 255
     wall_variation = current_level.wall_variation
@@ -90,7 +90,7 @@ def init_game():
     congrat_text = ["Ya got guts, kid.", "Nice goin', hotshot.", "Good goin', kid, ya did it!", "Nice clean run, kid."]
     congrat_choice = congrat_text[random.randint(0, len(congrat_text) - 1)]
 
-    CreateCentrePoints()
+    create_centre_points()
     z_increment = default_z_increment
     z_offset = 0
     player = Player()
@@ -105,14 +105,14 @@ def build_intro_cutscene():
     scene_list = []
     scene_list.append(cutscene.CutsceneScreen("title", "", cutscene.CutsceneLayout.img_full, ark_font))
     scene_list.append(cutscene.CutsceneScreen("intercom", "Hey, hotshot! Hope they weren't yankin' my chain when they said you was the best drone jockey this side of Arcturus.", cutscene.CutsceneLayout.img_btm, ark_font))
-    scene_list.append(cutscene.CutsceneScreen("cargo", "Gotta urgent delivery of {}, and the faster you get it there, the bigger the bonus.".format(cargo_txt), cutscene.CutsceneLayout.img_left, ark_font))
+    scene_list.append(cutscene.CutsceneScreen("cargo", f"Gotta urgent delivery of {cargo_txt}, and the faster you get it there, the bigger the bonus.", cutscene.CutsceneLayout.img_left, ark_font))
     scene_list.append(cutscene.CutsceneScreen("level_hyperion", "Yer takin' it to New Hyperion Base, the rough end. Shouldn't have trouble but it's tight in there.", cutscene.CutsceneLayout.img_right, ark_font))
     scene_list.append(cutscene.CutsceneScreen("package_load", "Yer drone's being loaded. You know the controls, right? A, C, Up and Down to move, B to boost? Yeah, course you do. Good luck.", cutscene.CutsceneLayout.img_top, ark_font))
     return scene_list
 
 
 # Just a little utility method to get the xy coordinates given a singlew index (reading l-r then t-b)
-def Get_Sprite(spritesheet, w, index):
+def get_sprite(spritesheet, w, index):
     x = index % w
     y = math.floor(index / w)
     return spritesheet.sprite(x, y)
@@ -134,7 +134,7 @@ class Segment:
         self.texture_r = random.randint(0, 7)
         self.obst = obst
         self.collision = collision
-        self.obst_texture_1, self.obst_texture_2 = PickTextures(obst)
+        self.obst_texture_1, self.obst_texture_2 = pick_textures(obst)
 
     # Refreshing doesn't actually take any external parameters, they all do the
     # same thing, slowly get bigger over time.
@@ -163,7 +163,7 @@ class Segment:
 
     # Draw just draws lines around the tunnel segment. We don't use it except for the floor.
     def draw(self):
-        pen(255, 255, 255, 50)
+        screen.pen = color.rgb(255, 255, 255, 50)
         # screen.line(self.ul, self.ur)
         # screen.line(self.ur, self.lr)
         screen.line(self.lr, self.ll)
@@ -172,7 +172,6 @@ class Segment:
 
 # The Player class stores your position, and methods to draw the player in 3D
 # and determine whether you're about to hit something.
-@micropython.native
 class Player:
     def __init__(self):
         self.x = screen_centre.x
@@ -281,7 +280,7 @@ def check_collision():
 # a given segment has. It returns an index or two to the obstacles spritesheet. It's deciding randomly which of the multiple sprites
 # to use for each combination of squares, as well as to use a single merged image or separate ones filling each quadrant.
 @micropython.native
-def PickTextures(index):
+def pick_textures(index):
     tex1 = 0
     tex2 = 0
     coin = random.randint(0, 1)
@@ -342,7 +341,7 @@ def PickTextures(index):
 
 # Sets up an initial array of segments for the start of the level.
 @micropython.native
-def CreateCentrePoints():
+def create_centre_points():
     global segments
     segments = []
     side_length = start_side_length
@@ -359,7 +358,7 @@ def CreateCentrePoints():
 # Takes four points and draws vertical strips between them, sampling the texture for each one.
 # It then also draws a semitransparent black line over it to darken the texture more toward the centre of the screen.
 @micropython.native
-def DrawWall(image, topleft, bottomleft, topright, bottomright, tex):
+def draw_wall(image, topleft, bottomleft, topright, bottomright, tex):
     width = topright.x - topleft.x
     tile = wall_tex.sprite(tex, 0)
     for i in range(width):
@@ -371,45 +370,45 @@ def DrawWall(image, topleft, bottomleft, topright, bottomright, tex):
             u = t * TEXTURE_SIZE
             image.vspan_tex(tile, x_pos, toppoint, bottompoint - toppoint, u, 0, u, TEXTURE_SIZE - 1)
             seg_brightness = BRIGHTNESSES[x_pos]
-            pen(color.rgb(0, 0, 0, seg_brightness))
+            screen.pen = color.rgb(0, 0, 0, seg_brightness)
             screen.line(vec2(x_pos, toppoint), vec2(x_pos, bottompoint))
 
 
 # Just calculates the time since the start of gameplay.
-def CalcTime():
+def calc_time():
     current_time = time.ticks_ms()
     elapsed = current_time - level_start_time
     ms = elapsed % 1000
-    _, _, _, _, min, sec, _, _ = time.gmtime(int(elapsed / 1000))
-    return min, sec, ms
+    _, _, _, _, minute, sec, _, _ = time.gmtime(int(elapsed / 1000))
+    return minute, sec, ms
 
 
 # Simple routines to draw the HUD, time and progress along the course onto the screen.
-def DrawHUD():
+def draw_hud():
     screen.blit(hud, rect(0, 0, screen.width, screen.height))
-    min, sec, ms = CalcTime()
+    minute, sec, ms = calc_time()
 
-    min = str(min)
+    minute = str(minute)
     sec = str(sec)
     ms = str(ms)
 
-    min = ("0" * (2 - len(min))) + min
+    minute = ("0" * (2 - len(minute))) + minute
     sec = ("0" * (2 - len(sec))) + sec
     ms = ("0" * (3 - len(ms))) + ms
 
-    text = "Time: " + str(min) + ":" + str(sec) + ":" + str(ms)
+    text = f"Time:{minute}:{sec}:{ms}"
     w, _ = screen.measure_text(text)
-    pen(0, 255, 0)
+    screen.pen = color.rgb(0, 255, 0)
     screen.text(text, 80 - (w / 2), 108)
-    pen(0, 128, 0)
+    screen.pen = color.rgb(0, 128, 0)
     screen.rectangle(20, 118, 120, 2)
     course_progress = (level_segments_passed / level_segments_total) * 120
-    pen(0, 255, 0)
+    screen.pen = color.rgb(0, 255, 0)
     screen.rectangle(20, 118, course_progress, 2)
 
 
 # The loop to render the tunnel and obstacles.
-# For each segment of the tunnel, we take the side walls of it and the segment behind it, DrawWall() between them with the texture,
+# For each segment of the tunnel, we take the side walls of it and the segment behind it, draw_wall() between them with the texture,
 # and blit that segment's obstacle, if any, to the screen.
 @micropython.native
 def render_gameplay():
@@ -424,23 +423,23 @@ def render_gameplay():
         inner.draw()
 
         if inner.ul.x > 0:
-            DrawWall(screen, outer.ul, outer.ll, inner.ul, inner.ll, inner.texture_l)
+            draw_wall(screen, outer.ul, outer.ll, inner.ul, inner.ll, inner.texture_l)
         if inner.ur.x < screen.width:
-            DrawWall(screen, inner.ur, inner.lr, outer.ur, outer.lr, inner.texture_r)
+            draw_wall(screen, inner.ur, inner.lr, outer.ur, outer.lr, inner.texture_r)
 
         if i == 0:
-            pen(0, 0, 0)
+            screen.pen = color.rgb(0, 0, 0)
             horizon = shape.custom([inner.ul, inner.ur, inner.lr, inner.ll])
             screen.shape(horizon)
 
         if inner.obst_texture_1 > 0:
-            screen.blit(Get_Sprite(obst_tex, 5, inner.obst_texture_1), rect(inner.ul.x, inner.ul.y, inner.radius * 2, inner.radius * 2))
+            screen.blit(get_sprite(obst_tex, 5, inner.obst_texture_1), rect(inner.ul.x, inner.ul.y, inner.radius * 2, inner.radius * 2))
         if inner.obst_texture_2 > 0:
-            screen.blit(Get_Sprite(obst_tex, 5, inner.obst_texture_2), rect(inner.ul.x, inner.ul.y, inner.radius * 2, inner.radius * 2))
+            screen.blit(get_sprite(obst_tex, 5, inner.obst_texture_2), rect(inner.ul.x, inner.ul.y, inner.radius * 2, inner.radius * 2))
 
     player.draw()
 
-    DrawHUD()
+    draw_hud()
 
 
 # Just checks whether we're in the black "good luck" screen or the fade from black.
@@ -449,7 +448,7 @@ def check_start():
 
 
 player = Player()
-segments = CreateCentrePoints()
+segments = create_centre_points()
 init_game()
 
 
@@ -459,9 +458,9 @@ def update():
     # If we're in the intro, just cycle through the intro cutscene with any button press until
     # there's no more pages of it left, then switch the game mode to gameplay.
     if game_state == GameState.INTRO:
-        pen(0, 0, 0)
+        screen.pen = color.rgb(0, 0, 0)
         screen.clear()
-        pen(255, 255, 255)
+        screen.pen = color.rgb(255, 255, 255)
 
         intro_cutscene.draw()
 
@@ -530,7 +529,7 @@ def update():
             # We store the final time and move to the win screen.
             if level_segments_passed >= level_segments_total:
                 z_increment = 0
-                final_time = CalcTime()
+                final_time = calc_time()
                 game_state = GameState.WIN_SCREEN
             else:
                 # Otherwise, let's make up a new segment and add it to the list.
@@ -549,12 +548,12 @@ def update():
         # This just draws the "get ready" screen, until enough segments have passed that we're past any
         # graphical issues caused by startup.
         if start_screen <= num_segs:
-            pen(0, 0, 0)
+            screen.pen = color.rgb(0, 0, 0)
             screen.clear()
             screen.blit(hud, rect(0, 0, screen.width, screen.height))
 
-            pen(255, 255, 255)
-            dist_text = "{} klicks to".format(level_segments_total)
+            screen.pen = color.rgb(255, 255, 255)
+            dist_text = f"{level_segments_total} klicks to"
             w, _ = screen.measure_text(dist_text)
             screen.text(dist_text, vec2((screen.width - w) / 2, 60))
             dist_text = "destination..."
@@ -567,7 +566,7 @@ def update():
         # And then if we're done with that, draw the gameplay, but with a semitransparent black over it that fades over time.
         # Only when the opacity of that has reached zero do we start the timer, enable the controls and start spawning obstacles.
         elif fade_counter > 0:
-            pen(0, 0, 0, fade_counter)
+            screen.pen = color.rgb(0, 0, 0, fade_counter)
             screen.rectangle(0, 0, screen.width, screen.height)
             screen.blit(hud, rect(0, 0, screen.width, screen.height))
             fade_counter -= 16
@@ -604,27 +603,27 @@ def update():
         w, _ = screen.measure_text(congrat_choice)
         screen.text(congrat_choice, vec2((screen.width - w) / 2, 60))
 
-        min, sec, ms = final_time
-        timetotal = (min * 60 * 1000) + (sec * 1000) + ms
+        minute, sec, ms = final_time
+        timetotal = (minute * 60 * 1000) + (sec * 1000) + ms
         scoretotal = int((level_segments_total / timetotal) * 751734)
 
-        min = str(min)
+        minute = str(minute)
         sec = str(sec)
         ms = str(ms)
 
-        min = ("0" * (2 - len(min))) + min
+        minute = ("0" * (2 - len(minute))) + minute
         sec = ("0" * (2 - len(sec))) + sec
         ms = ("0" * (3 - len(ms))) + ms
 
-        time_text = "Final time: " + str(min) + ":" + str(sec) + ":" + str(ms)
+        time_text = f"Final time: {minute}:{sec}:{ms}"
         w, _ = screen.measure_text(time_text)
         screen.text(time_text, vec2((screen.width - w) / 2, 70))
 
-        time_text = "Over {} klicks".format(level_segments_total)
+        time_text = f"Over {level_segments_total} klicks"
         w, _ = screen.measure_text(time_text)
         screen.text(time_text, vec2((screen.width - w) / 2, 80))
 
-        time_text = "Gets you {} creds!".format(scoretotal)
+        time_text = f"Gets you {scoretotal} creds!"
         w, _ = screen.measure_text(time_text)
         screen.text(time_text, vec2((screen.width - w) / 2, 90))
 
