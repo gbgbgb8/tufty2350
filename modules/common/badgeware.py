@@ -481,6 +481,56 @@ def get_exception(e):
     return s.read()
 
 
+# Draw scrolling text into a given window
+def scroll_text(text, font_face=None, bg=None, fg=None, target=None, speed=25, continuous=False, font_size=None):
+    font_face = font_face or rom_font.sins
+    fg = fg or color.rgb(128, 128, 128)
+
+    is_vector_font = isinstance(font_face, font)
+
+    if is_vector_font and font_size is None:
+        raise ValueError("scroll_text: vector fonts require a font_size")
+
+    target = target or screen.window(0, 0, screen.width, screen.height)
+    target.font = font_face
+
+    tw, th = target.measure_text(text, font_size) if isinstance(font_face, font) else target.measure_text(text)
+
+    if is_vector_font:
+        th = font_size
+
+    scroll_distance = tw + (0 if continuous else target.width)
+
+    t_start = io.ticks
+
+    offset = vec2(0, (target.height - th) // 2)
+
+    def update():
+        timedelta = io.ticks - t_start
+        timedelta /= 1000 / speed
+        timedelta %= scroll_distance
+        timedelta /= scroll_distance
+
+        if continuous:
+            offset.x = -scroll_distance * timedelta
+        else:
+            offset.x = target.width - (scroll_distance * timedelta)
+
+        target.font = font_face
+        if bg is not None:
+            target.pen = bg
+            target.clear()
+        target.pen = fg
+
+        # The "font_size" argument is ignored for vector text
+        target.text(text, offset, font_size)
+
+        if continuous:
+            target.text(text, offset + vec2(tw, 0), font_size)
+
+    return update
+
+
 # Draw an overlay box with a given message within it
 def message(title, msg, window=None):
     error_window = window or screen.window(5, 5, screen.width - 10, screen.height - 10)
