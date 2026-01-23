@@ -16,8 +16,11 @@ def update():
       int(math.sin(i + io.ticks / 200) * 100 + 240)
     )
     clip = rect(10, 10, 140, 100)
-    algorithm.clip_line(p1, p2, clip)
-    screen.line(p1, p2)
+
+    # clip_line returns true if a line is inside the clipping bounds or has been clipped
+    # lines outside of the bounds should be rejected, since they cannot be clipped
+    if algorithm.clip_line(p1, p2, clip):
+      screen.line(p1, p2)
 
   screen.pen = color.rgb(60, 80, 100, 100)
   screen.line(clip.x, clip.y, clip.x + clip.w, clip.y)
