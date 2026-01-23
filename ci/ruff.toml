@@ -2,6 +2,7 @@ builtins = [
     "micropython",
     "const",
     "ptr8",
+    "ptr32",
     "mode",
     "HIRES",
     "LORES",
@@ -25,6 +26,8 @@ builtins = [
     "rect",
     "shape",
     "screen",
+    "text_draw",
+    "text_tokenise"
 ]
 
 # Include:
