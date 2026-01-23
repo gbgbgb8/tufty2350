@@ -50,7 +50,7 @@ class Ball:
         return a.position.x + a.w >= b.position.x and a.position.x <= b.position.x + b.w and a.position.y + a.h >= b.position.y and a.position.y <= b.position.y + b.h
 
     def update(self):
-        for step in range(self.speed):
+        for _step in range(self.speed):
             # new positions
             self.position.x += self.direction.x
             self.position.y += self.direction.y
@@ -98,7 +98,7 @@ class Bat:
         self.offset = 2
         Bat.bats.append(self)
 
-    def _update(self):
+    def bat_update(self):
 
         self.offset = random.randint(0, 5)
 
@@ -138,7 +138,7 @@ class Bat:
     @staticmethod
     def update():
         for bat in Bat.bats:
-            bat._update()
+            bat.bat_update()
 
 
 # Called once to initialise your app.

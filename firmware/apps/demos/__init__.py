@@ -1,12 +1,13 @@
 import os
 import sys
+import machine
 
 APP_DIR = "/system/apps/demos"
 
 sys.path.insert(0, APP_DIR)
 os.chdir(APP_DIR)
 
-from badgeware import run, BG
+from badgeware import BG
 
 mode(LORES)
 

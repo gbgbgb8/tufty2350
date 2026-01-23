@@ -212,12 +212,12 @@ class Renderer:
         score_units = score % 10
 
         if score_tens > 0:
-            for i in range(score_tens):
+            for _ in range(score_tens):
                 screen.blit(acorn_multi, vec2(scoreX, 109))
                 scoreX += 11
 
         if score_units > 0:
-            for i in range(score_units):
+            for _ in range(score_units):
                 screen.blit(acorn10, vec2(scoreX, 109))
                 scoreX += 11
 

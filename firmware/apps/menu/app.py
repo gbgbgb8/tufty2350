@@ -134,7 +134,7 @@ class Apps:
 
     def draw_icons(self):
         offset = (self.active_index // 6) * 6
-        for i, app in enumerate(self.apps[offset:offset + 6]):
+        for app in self.apps[offset:offset + 6]:
             app.draw()
 
     def draw_label(self):

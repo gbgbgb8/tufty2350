@@ -59,7 +59,7 @@ def centre_text(text, w, y, image=win):
     image.text(text, tx, y)
 
 
-def draw_light(wx, wy, ww, wh):
+def draw_light(_wx, _wy, _ww, _wh):
     global light_samples
 
     win.pen = color.rgb(*LIGHT_COLOUR)
@@ -87,13 +87,13 @@ def draw_light(wx, wy, ww, wh):
 
     cpos = [(10, 10), (30, 50), (100, 60), (130, 10), (70, 0), (70, 100)]
     win.pen = color.rgb(255, 255, 255, avg_lux)
-    for i, pos in enumerate(cpos):
+    for pos in cpos:
         x, y = pos
         win.shape(shape.circle(x, y, diameter + 2))
         win.shape(shape.circle(x, y, diameter).stroke(2))
 
 
-def draw_temperature(wx, wy, ww, wh):
+def draw_temperature(_wx, wy, ww, wh):
     global graph, last_graph
 
     win.pen = color.rgb(*TEMP_COLOUR)
@@ -141,7 +141,7 @@ def draw_temperature(wx, wy, ww, wh):
     centre_text(pressure_text, cx, cy - 5)
 
 
-def draw_motion(wx, wy, ww, wh):
+def draw_motion(_wx, wy, ww, wh):
     global motion_samples
 
     win.pen = color.rgb(*MOVE_COLOUR)
@@ -254,7 +254,7 @@ class Widget:
     def is_fullscreen():
         return any(view.full_view for view in Widget.widgets)
 
-    def _update(self):
+    def update_widget(self):
 
         if self == Widget.widgets[Widget.selected]:
             # We don't want to overwrite 'selected' if it already has ticks
@@ -325,7 +325,7 @@ class Widget:
     @staticmethod
     def update():
         for w in Widget.widgets:
-            w._update()
+            w.update_widget()
 
 
 def draw_background():

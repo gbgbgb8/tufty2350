@@ -49,9 +49,9 @@ def draw_background():
     cx = CX
 
     y = 0
-    for row in range(12):
+    for _row in range(12):
         x = 0
-        for col in range(16):
+        for _col in range(16):
             dist = math.sqrt((x + 5 - cx) ** 2 + (y + 5 - cy) ** 2)
             pulse = (math.sin(-io.ticks / 400 + (dist / 6)) / 2) + 0.5
             pulse = 0.8 + (pulse / 2)

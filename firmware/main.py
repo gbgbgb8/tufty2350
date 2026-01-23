@@ -16,7 +16,7 @@ def quit_to_launcher(pin):
     machine.reset()
 
 
-standard_modules = [k for k in sys.modules.keys()]
+standard_modules = list(sys.modules.keys())
 
 try:
     menu = __import__("/system/apps/menu")
@@ -31,7 +31,7 @@ if sys.path[0].startswith("/system/apps"):
 del menu
 
 # make any module names imported by menu are freed for apps
-for key, module in sys.modules.items():
+for key, _module in sys.modules.items():
     if key not in standard_modules:
         del sys.modules[key]
 

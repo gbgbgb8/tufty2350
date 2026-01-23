@@ -35,7 +35,7 @@ outline_brush_bold = color.rgb(20, 30, 40, 200)
 
 
 # draw the background scenery
-def background(pet):
+def background():
     screen.blit(background_image, vec2(0, 0))
 
 
