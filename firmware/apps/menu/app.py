@@ -116,7 +116,7 @@ class Apps:
                 return word
             return word[0].upper() + word[1:]
 
-        for path in os.listdir(root):
+        for path in sorted(os.listdir(root)):
             name = " ".join([capitalize(word) for word in path.split("_")])
 
             if is_dir(f"{root}/{path}"):
