@@ -103,7 +103,7 @@ def update():
   result = algorithm.dda(player.pos, player.angle, player.fov, num_rays, 20, world_map, MAP_SIZE_X, MAP_SIZE_Y)
 
   for screen_x, ray in enumerate(result):
-    for (tile_id, cb_p, cb_g, edge, offset, distance) in ray:
+    for (tile_id, cb_p, _cb_g, _edge, _offset, distance) in ray:
       if tile_id == 1:
           height = (2 / distance) * d_proj
           b = min(255, distance * 20)

@@ -4,7 +4,7 @@ skull = image.load("/system/assets/skull.png")
 screen.font = pixel_font.load("/system/assets/fonts/compass.ppf")
 
 
-def pen_glyph_renderer(image, parameters, cursor, measure):
+def pen_glyph_renderer(_image, parameters, _cursor, measure):
   if measure:
     return 0
 
@@ -12,19 +12,22 @@ def pen_glyph_renderer(image, parameters, cursor, measure):
   g = int(parameters[1])
   b = int(parameters[2])
   screen.pen = color.rgb(r, g, b)
+  return None
 
 
-def skull_glyph_renderer(image, parameters, cursor, measure):
+def skull_glyph_renderer(image, _parameters, cursor, measure):
   if measure:
     return 24
   image.blit(skull, cursor)
+  return None
 
 
-def circle_glyph_renderer(image, parameters, cursor, measure):
+def circle_glyph_renderer(image, _parameters, cursor, measure):
   if measure:
     return 12
 
   image.shape(shape.circle(cursor.x + 6, cursor.y + 7, 6))
+  return None
 
 
 nope = pixel_font.load("/system/assets/fonts/nope.ppf")

@@ -79,10 +79,11 @@ def time_from_ntp():
     localtime_to_rtc()
 
 
-def pen_glyph_renderer(image, parameters, cursor, measure):
+def pen_glyph_renderer(image, parameters, _cursor, measure):
     if measure:
         return 0
     image.pen = color.rgb(*(int(c) for c in parameters))
+    return None
 
 
 def text_tokenise(image, text, glyph_renderers=None, size=24):
@@ -617,7 +618,7 @@ def load_font(font_file):
             if file_exists(path) and not is_dir(path):
                 return font.load(path) if path.endswith(".af") else pixel_font.load(path)
 
-    raise OSError(f"Font \"{font_file}\" not found!")
+    raise OSError(f'Font "{font_file}" not found!')
 
 
 class ROMFonts:

@@ -1,13 +1,10 @@
 import os
 import sys
-import machine
 
 APP_DIR = "/system/apps/demos"
 
 sys.path.insert(0, APP_DIR)
 os.chdir(APP_DIR)
-
-from badgeware import BG
 
 mode(LORES)
 
@@ -90,47 +87,6 @@ def update():
 
 
 if __name__ == "__main__":
-    AVERAGE_OVER = 60
-    SAMPLE_COUNT = 5
+  from badgeware import run
 
-    frames = 0
-    total = 0
-    samples = 0
-    next_test = False
-    current_test = names[selected]
-
-    import time
-
-    freq = machine.freq() / 1_000_000
-
-    while True:
-        screen.pen = BG
-        screen.clear()
-        io.poll()
-
-        t_start = time.ticks_ms()
-        next_test = update()
-        diff = time.ticks_diff(time.ticks_ms(), t_start)
-        bw.display.update(screen.width == 320)
-        total += diff
-        frames += 1
-
-        if next_test != current_test:
-            current_test = next_test
-            total = 0
-            frames = 0
-            samples = 0
-
-        if frames == AVERAGE_OVER:
-            samples += 1
-            avg_frame_time = total / frames
-            avg_fps = 1000 / avg_frame_time
-            print(f"{current_test}: {samples}: {avg_frame_time:.02f}ms {avg_fps:.02f}fps averaged over {frames} frames at {freq:.2f}MHz")
-            frames = 0
-            total = 0
-            if samples == SAMPLE_COUNT:
-                samples = 0
-                next_demo = True
-
-
-
+  run(update)
