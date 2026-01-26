@@ -64,9 +64,6 @@ def connect(ssid=None, psk=None, timeout=60, on_success=None, on_error=None):
   if wlan and wlan.isconnected():
     return True
 
-  if wlan:
-    print(wlan.status())
-
   if wlan is None:
     wlan = network.WLAN(network.STA_IF)
     wlan.active(True)
@@ -89,17 +86,25 @@ def is_connected():
   return wlan is not None and wlan.isconnected()
 
 
+def ipv4():
+  return wlan.ipconfig("addr4")[0] if wlan else None
+
+
+def ipv6():
+  return wlan.ipconfig("addr6")[0][0] if wlan else None
+
+
 def ip():
-  return wlan.ifconfig()[0]
+  return ipv4()
 
 
 def subnet():
-  return wlan.ifconfig()[1]
+  return wlan.ifconfig()[1] if wlan else None
 
 
 def gateway():
-  return wlan.ifconfig()[2]
+  return wlan.ifconfig()[2] if wlan else None
 
 
 def nameserver():
-  return wlan.ifconfig()[3]
+  return wlan.ifconfig()[3] if wlan else None
