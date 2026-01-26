@@ -162,6 +162,7 @@ class Pet:
 animations = {
   # actions
   "dance":    4, # play
+  "clean":    4, # clean
   "eating":   2, # eat
   "running":  7,
   "sleep":    4,

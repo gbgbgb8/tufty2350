@@ -51,7 +51,7 @@ def game_update():
         # clean pet!
         if io.BUTTON_C in io.pressed:
             pet.clean(30)
-            pet.do_action("dance")
+            pet.do_action("clean")
 
         # every 20 seconds pet will move to a new location
         if pet.time_since_last_position_change() > 20:
@@ -96,7 +96,7 @@ def update():
 
         ui.draw_button(4, 100,  "play", pet.current_action() == "dance")
         ui.draw_button(55, 100,  "feed", pet.current_action() == "eating")
-        ui.draw_button(106, 100, "clean", pet.current_action() == "dance")
+        ui.draw_button(106, 100, "clean", pet.current_action() == "clean")
     else:
         ui.draw_button(55, 100, "reset", True)
 
