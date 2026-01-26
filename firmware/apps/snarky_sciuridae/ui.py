@@ -6,11 +6,6 @@ icons = SpriteSheet("assets/icons.png", 4, 1)
 arrows = SpriteSheet("assets/arrows.png", 3, 1)
 background_image = image.load("/system/assets/squirrel-sprites/background.png")
 
-for x in range(background_image.width // 4):
-    for y in range(background_image.width // 4):
-        background_image.pen = color.rgb(128, 255, 128, (((y * 41) + x) & 0b1) * 40)
-        background_image.rectangle(x * 4, y * 4, 4, 4)
-
 # load in the font - font sheet generated from
 screen.font = pixel_font.load("/system/assets/fonts/ark.ppf")
 
