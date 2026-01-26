@@ -83,7 +83,7 @@ def update():
     pet.update()
 
     # draw the background scene
-    ui.background(pet)
+    ui.background()
 
     # draw our little friend
     pet.draw()
