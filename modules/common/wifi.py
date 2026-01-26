@@ -1,15 +1,19 @@
+
 import network
+import secrets
 from badgeware import fatal_error
 
-_timeout = None
-_on_success = None
-_on_error = None
+
+_timeout_ticks = None
+_timeout = 0
+_retries = 0
 wlan = None
 
 
 _status_text = {
   0: "Idle",
   1: "Connecting to {ssid}",
+  2: "Connected",
   -3: "Incorrect password.",
   -2: "Access point {ssid} not found.",
   -1: "Connection failed.",
@@ -22,57 +26,61 @@ def get_status(index):
 
 
 def tick():
-  global _timeout, _on_success, _on_error
+  global _timeout_ticks, _timeout, _retries, _ssid, _psk
 
   if wlan is not None and wlan.isconnected():
-    if _on_success:
-      _on_success()
-      _timeout = None
-      _on_success = None
-      _on_error = None
-    return
+    return True
 
-  timed_out = _timeout is not None and io.ticks > _timeout
-  error = wlan is not None and wlan.status() not in (0, 1, 3)
+  timed_out = _timeout_ticks is not None and io.ticks > _timeout_ticks
+  error = wlan is not None and wlan.status() not in (0, 1, 2, 3)
 
   if (timed_out or error):
+    if _retries:
+      _retries -= 1
+      _timeout_ticks = io.ticks + (_timeout * 1000)
+      wlan.connect(_ssid, _psk)
+      return False
+
     wlan.active(False)
-    _timeout = None
-    if _on_error:
-      _on_error()
-    else:
-      fatal_error("WiFi Connection Failed", get_status(wlan.status()))
-    # connection timeout
-    _on_success = None
-    _on_error = None
+    fatal_error("WiFi Connection Timed Out" if timed_out else "WiFi Connection Failed", get_status(wlan.status()))
+    _timeout_ticks = None
+
+  return False
 
 
-def connect(ssid=None, psk=None, timeout=60, on_success=None, on_error=None):
-  global wlan, _timeout, _on_success, _on_error, _ssid, _psk
+def connect(ssid=None, psk=None, timeout=60, retries=5):
+  global wlan, _timeout_ticks, _timeout, _retries, _ssid, _psk
 
   if ssid is None and psk is None:
-    secrets = __import__("/system/secrets")
     ssid = secrets.WIFI_SSID
     psk = secrets.WIFI_PASSWORD
 
     if not ssid:
       fatal_error("Missing Details!", "Put your badge into disk mode (tap RESET twice)\nEdit 'secrets.py' to set WiFi details and your local region")
 
+  if wlan:
+    return wlan.isconnected()
+
+  wlan = network.WLAN(network.STA_IF)
+  wlan.active(True)
+  # Already connected from a previous attempt
+  if wlan.isconnected():
+    return True
   _ssid = ssid
   _psk = psk
-
-  if wlan and wlan.isconnected():
-    return True
-
-  if wlan is None:
-    wlan = network.WLAN(network.STA_IF)
-    wlan.active(True)
-    wlan.connect(ssid, psk)
-    _on_success = on_success
-    _on_error = on_error
-    _timeout = io.ticks + (timeout * 1000)
-
+  _retries = retries
+  _timeout = timeout
+  wlan.connect(ssid, psk)
+  _timeout_ticks = io.ticks + (timeout * 1000)
   return False
+
+
+def disconnect():
+  global wlan
+  if wlan:
+    wlan.disconnect()
+    wlan.active(False)
+    wlan = None
 
 
 def status():
