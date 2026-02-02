@@ -55,8 +55,9 @@ state = {
 
 State.load("stocks", state)
 
-stocks_state = StocksState.Running
-last_data_fetch_attempt = 0
+stocks_state = StocksState.ConnectWiFi
+last_data_fetch_attempt = io.ticks
+connection_attempt_count = 0
 
 # Timing constants (in milliseconds since io.ticks is millisecond-based)
 UPDATE_INTERVAL = 300000  # Update every 5 minutes (300000 ms)
@@ -214,7 +215,7 @@ def init():
 
 def update():
     """Main update loop."""
-    global stocks_state, last_data_fetch_attempt, state
+    global stocks_state, last_data_fetch_attempt, state, connection_attempt_count
     
     # Tick WiFi connection
     wifi.tick()
@@ -239,6 +240,7 @@ def update():
         if stocks_state == StocksState.Running:
             stocks_state = StocksState.ConnectWiFi
             last_data_fetch_attempt = io.ticks
+            connection_attempt_count = 0
     
     # State machine for WiFi connection and data fetching
     current_time = io.ticks
@@ -248,6 +250,7 @@ def update():
         if current_time - state["last_update"] >= UPDATE_INTERVAL:
             stocks_state = StocksState.ConnectWiFi
             last_data_fetch_attempt = current_time
+            connection_attempt_count = 0
         else:
             state["wifi_connected"] = wifi.is_connected()
     
@@ -255,10 +258,15 @@ def update():
         if wifi.connect():
             stocks_state = StocksState.FetchData
             state["wifi_connected"] = True
+            connection_attempt_count = 0
         else:
-            # Failed to connect, return to running with offline state
-            stocks_state = StocksState.Running
-            state["wifi_connected"] = False
+            # Retry connection a few times before giving up
+            connection_attempt_count += 1
+            if connection_attempt_count >= 3:
+                # Give up and go back to running with offline state
+                stocks_state = StocksState.Running
+                state["wifi_connected"] = False
+                state["last_update"] = io.ticks  # Set update time to prevent constant retries
     
     elif stocks_state == StocksState.FetchData:
         # Fetch data for all stocks
