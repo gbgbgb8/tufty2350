@@ -34,6 +34,12 @@ try:
 except AttributeError:
     stocks = ["TSLA", "PLTR", "SPY", "QQQ"]
 
+# State machine for WiFi connection and data fetching
+class StocksState:
+    Running = 0
+    ConnectWiFi = 1
+    FetchData = 2
+
 # App state
 state = {
     "current_stock_index": 0,
@@ -43,6 +49,9 @@ state = {
 }
 
 State.load("stocks", state)
+
+stocks_state = StocksState.Running
+last_data_fetch_attempt = 0
 
 # Colors
 COLOR_UP = color.rgb(0, 255, 0)
@@ -70,12 +79,6 @@ UPDATE_INTERVAL = 300  # Update every 5 minutes
 
 def fetch_stock_data(ticker):
     """Fetch stock data, using mock data as fallback."""
-    if not wifi.is_connected():
-        state["wifi_connected"] = False
-        return MOCK_STOCK_DATA.get(ticker, MOCK_STOCK_DATA["TSLA"])
-    
-    state["wifi_connected"] = True
-    
     try:
         import urequests
         api_key = getattr(secrets, 'ALPHA_VANTAGE_KEY', 'demo')
@@ -104,14 +107,8 @@ def fetch_stock_data(ticker):
     return MOCK_STOCK_DATA.get(ticker, MOCK_STOCK_DATA["TSLA"])
 
 
-def update_stock_data():
-    """Update stock data for all stocks in the list."""
-    current_time = time.time()
-    
-    # Only update if enough time has passed
-    if current_time - state["last_update"] < UPDATE_INTERVAL:
-        return
-    
+def fetch_all_stocks():
+    """Fetch data for all stocks in the list."""
     for ticker in stocks:
         try:
             state["stock_data"][ticker] = fetch_stock_data(ticker)
@@ -119,7 +116,7 @@ def update_stock_data():
             # Use mock data as fallback
             state["stock_data"][ticker] = MOCK_STOCK_DATA.get(ticker, MOCK_STOCK_DATA["TSLA"])
     
-    state["last_update"] = current_time
+    state["last_update"] = time.time()
     State.save("stocks", state)
 
 
@@ -209,23 +206,18 @@ def init():
 
 def update():
     """Main update loop."""
-    global state
+    global stocks_state, last_data_fetch_attempt, state
     
     # Tick WiFi connection
     wifi.tick()
     
-    # Handle button presses
+    # Handle button presses for navigation
     if io.BUTTON_A in io.pressed:
         # Previous stock
         state["current_stock_index"] -= 1
         if state["current_stock_index"] < 0:
             state["current_stock_index"] = len(stocks) - 1
         State.save("stocks", state)
-    
-    if io.BUTTON_B in io.pressed:
-        # Manual refresh
-        state["last_update"] = 0
-        update_stock_data()
     
     if io.BUTTON_C in io.pressed:
         # Next stock
@@ -234,8 +226,37 @@ def update():
             state["current_stock_index"] = 0
         State.save("stocks", state)
     
-    # Update stock data if needed
-    update_stock_data()
+    # Button B triggers WiFi connection and data fetch
+    if io.BUTTON_B in io.pressed:
+        if stocks_state == StocksState.Running:
+            stocks_state = StocksState.ConnectWiFi
+            last_data_fetch_attempt = time.time()
+    
+    # State machine for WiFi connection and data fetching
+    current_time = time.time()
+    
+    if stocks_state == StocksState.Running:
+        # Check if we need to fetch data periodically
+        if current_time - state["last_update"] >= UPDATE_INTERVAL:
+            stocks_state = StocksState.ConnectWiFi
+            last_data_fetch_attempt = current_time
+        else:
+            state["wifi_connected"] = wifi.is_connected()
+    
+    elif stocks_state == StocksState.ConnectWiFi:
+        if wifi.connect():
+            stocks_state = StocksState.FetchData
+            state["wifi_connected"] = True
+        else:
+            # Failed to connect, return to running with offline state
+            stocks_state = StocksState.Running
+            state["wifi_connected"] = False
+    
+    elif stocks_state == StocksState.FetchData:
+        # Fetch data for all stocks
+        fetch_all_stocks()
+        stocks_state = StocksState.Running
+        state["wifi_connected"] = True
     
     # Draw the display
     draw_stock_display()
