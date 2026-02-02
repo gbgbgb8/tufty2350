@@ -202,6 +202,8 @@ def draw_stock_display():
 
 def init():
     """Initialize the app."""
+    global state
+    
     # Load initial mock data
     for ticker in stocks:
         if ticker not in state["stock_data"]:
@@ -269,4 +271,4 @@ def update():
 
 
 # Run the app
-run(init, update)
+run(update, init=init)
