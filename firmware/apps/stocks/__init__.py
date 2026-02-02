@@ -16,7 +16,7 @@ sys.path.insert(0, APP_DIR)
 from badgeware import run, State
 
 # Generate icon if it doesn't exist (base64 encoded 32x32 PNG)
-icon_path = os.path.join(APP_DIR, "icon.png")
+icon_path = f"{APP_DIR}/icon.png"
 if not os.path.exists(icon_path):
     import base64
     icon_data = base64.b64decode(
