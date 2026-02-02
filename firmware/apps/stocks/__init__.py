@@ -17,7 +17,12 @@ from badgeware import run, State
 
 # Generate icon if it doesn't exist (base64 encoded 32x32 PNG)
 icon_path = f"{APP_DIR}/icon.png"
-if not os.path.exists(icon_path):
+try:
+    # Try to open the file to check if it exists
+    with open(icon_path, "rb"):
+        pass
+except OSError:
+    # File doesn't exist, create it
     import base64
     icon_data = base64.b64decode(
         "iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAyElEQVR42u2YQQrAMAwDNZWDHkT8h/0fpx7Eg4cRPIoH8SAe5iDeRPygHsSDhJF4EA/iQTyIB/EgXsSDeBAPwgH+EzG3KMzd2Ww2m81mM/PnP2+z2Ww2m80YY9M0lSQBUFVV13UlSYIxZls2bZskSQpBwHVdXdedd56WJWmaJkmSJEmSJEmSJEmSJEmSJEmSJEmSJEmSJP+GZLP5j9lsNv+p6xrHcRzHcRzHcRzHcRzHcRzHcRyHMQZjDMYYjDEYYzDGAAwDAAz/hf8fKxRWAStU5hsqFFYBK1TmGyoUVgErVOYbKhRWAStU5hsqFFYBK1TmGyoUVgErVOYbKhRWAStU5g8qFFYBK1TmDyoUVgErVOYPKhRWAStU5g8qFFYBK1TmDyoUVgErVOYPKhRWAStU5g8qFFYBK1TmHyoUVgErVOY3VCisAlatDXQAAAAASUVORK5CYII="
@@ -53,6 +58,9 @@ State.load("stocks", state)
 stocks_state = StocksState.Running
 last_data_fetch_attempt = 0
 
+# Timing constants (in milliseconds since io.ticks is millisecond-based)
+UPDATE_INTERVAL = 300000  # Update every 5 minutes (300000 ms)
+
 # Colors
 COLOR_UP = color.rgb(0, 255, 0)
 COLOR_DOWN = color.rgb(255, 0, 0)
@@ -73,8 +81,6 @@ MOCK_STOCK_DATA = {
     "SPY": {"price": 385.20, "change": -2.10, "change_percent": -0.54},
     "QQQ": {"price": 315.75, "change": 3.45, "change_percent": 1.10},
 }
-
-UPDATE_INTERVAL = 300  # Update every 5 minutes
 
 
 def fetch_stock_data(ticker):
@@ -116,7 +122,7 @@ def fetch_all_stocks():
             # Use mock data as fallback
             state["stock_data"][ticker] = MOCK_STOCK_DATA.get(ticker, MOCK_STOCK_DATA["TSLA"])
     
-    state["last_update"] = time.time()
+    state["last_update"] = io.ticks
     State.save("stocks", state)
 
 
@@ -230,10 +236,10 @@ def update():
     if io.BUTTON_B in io.pressed:
         if stocks_state == StocksState.Running:
             stocks_state = StocksState.ConnectWiFi
-            last_data_fetch_attempt = time.time()
+            last_data_fetch_attempt = io.ticks
     
     # State machine for WiFi connection and data fetching
-    current_time = time.time()
+    current_time = io.ticks
     
     if stocks_state == StocksState.Running:
         # Check if we need to fetch data periodically
