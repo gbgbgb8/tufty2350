@@ -123,6 +123,9 @@ def draw_temperature(_wx, wy, ww, wh):
     # unpack the readings into sensible variables
     temp, pressure, humidity = reading
 
+    # convert celsius to fahrenheit
+    temp = round(temp * 9 / 5 + 32, 1)
+
     # format the pressure reading
     pressure /= 100
     pressure = round(pressure)
@@ -131,7 +134,7 @@ def draw_temperature(_wx, wy, ww, wh):
     win.font = font_absolute
 
     # draw text for the readings
-    temp_text = f"Temp: {temp}C"
+    temp_text = f"Temp: {temp}F"
     centre_text(temp_text, cx, cy - 35)
 
     humidity_text = f"RH: {humidity}%"
