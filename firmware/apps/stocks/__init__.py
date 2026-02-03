@@ -58,7 +58,7 @@ class StocksState:
 state = {
     "current_stock_index": 0,
     "stock_data": {},
-    "last_update": 0,
+    "last_update": -400000,  # Negative so app fetches immediately on launch
     "wifi_connected": False,
 }
 
@@ -174,11 +174,14 @@ def draw_stock_display():
         change_color = COLOR_NEUTRAL
         symbol = "="
     
-    # Draw ticker symbol (large)
+    # Draw ticker symbol with WiFi indicator (large)
     screen.font = large_font
     screen.pen = COLOR_TEXT
-    ticker_width = screen.measure_text(ticker)[0]
-    screen.text(ticker, (screen.width - ticker_width) // 2, 20)
+    ticker_text = ticker
+    if state["wifi_connected"]:
+        ticker_text = ticker + " 📶"  # Add WiFi indicator
+    ticker_width = screen.measure_text(ticker_text)[0]
+    screen.text(ticker_text, (screen.width - ticker_width) // 2, 20)
     
     # Draw price (very large)
     screen.font = large_font
@@ -242,6 +245,20 @@ def update():
     
     if io.BUTTON_C in io.pressed:
         # Next stock
+        state["current_stock_index"] += 1
+        if state["current_stock_index"] >= len(stocks):
+            state["current_stock_index"] = 0
+        State.save("stocks", state)
+    
+    if io.BUTTON_UP in io.pressed:
+        # Also allow UP for previous stock
+        state["current_stock_index"] -= 1
+        if state["current_stock_index"] < 0:
+            state["current_stock_index"] = len(stocks) - 1
+        State.save("stocks", state)
+    
+    if io.BUTTON_DOWN in io.pressed:
+        # Also allow DOWN for next stock
         state["current_stock_index"] += 1
         if state["current_stock_index"] >= len(stocks):
             state["current_stock_index"] = 0
