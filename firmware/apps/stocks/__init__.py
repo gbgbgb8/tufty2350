@@ -144,6 +144,14 @@ class ViewMode:
     INFO = 1
 
 
+class TickerSize:
+    LARGE = 0       # Default
+    LARGER = 1      # Bigger
+    EVEN_LARGER = 2 # Even bigger
+    GARGANTUAN = 3  # Full screen ticker
+    _COUNT = 4      # For cycling
+
+
 # =============================================================================
 # Formatting Utilities (DRY)
 # =============================================================================
@@ -437,13 +445,17 @@ class StockDisplay:
     """Handles all screen rendering for the stocks app."""
     
     def __init__(self):
-        self.large_font = pixel_font.load("/system/assets/fonts/smart.ppf")
-        self.small_font = pixel_font.load("/system/assets/fonts/fear.ppf")
+        # Load different size pixel fonts for different display modes
+        # Available: ark(6), sins(7), nope(8), smart(9), fear(11), curse(12), futile(14), ignore(17)
+        self.font_small = pixel_font.load("/system/assets/fonts/fear.ppf")      # 11px
+        self.font_medium = pixel_font.load("/system/assets/fonts/futile.ppf")   # 14px
+        self.font_large = pixel_font.load("/system/assets/fonts/ignore.ppf")    # 17px
         screen.antialias = image.X4
     
     def center_x(self, text):
-        """Calculate X position to center text."""
-        return (screen.width - screen.measure_text(text)[0]) // 2
+        """Calculate X position to center text with current font."""
+        w = screen.measure_text(text)[0]
+        return (screen.width - w) // 2
     
     def draw_background(self, market_open, change, current_ms):
         """Draw background with optional pulse during market hours."""
@@ -460,49 +472,9 @@ class StockDisplay:
             screen.pen = rgb(*blend_color(base, alpha))
         screen.clear()
     
-    def draw_status_indicators(self, market_open, wifi_connected, current_ms):
-        """Draw WiFi and market status indicators in corners."""
-        screen.font = self.small_font
-        
-        # Top-left: Live indicator
-        if market_open:
-            alpha = get_pulse_alpha(current_ms, LIVE_INDICATOR_PERIOD_MS)
-            screen.pen = rgb(*blend_color(COLORS["up"], alpha))
-            screen.text("*", 8, 6)
-        else:
-            screen.pen = rgb(*COLORS["dim"])
-            screen.text(".", 8, 6)
-        
-        # Top-right: WiFi indicator
-        if wifi_connected:
-            screen.pen = rgb(*COLORS["up"])
-            screen.text("W", screen.width - 16, 6)
-        else:
-            screen.pen = rgb(*COLORS["dim"])
-            screen.text("-", screen.width - 16, 6)
-    
-    def draw_ticker(self, ticker):
-        """Draw the stock ticker symbol."""
-        screen.font = self.large_font
-        screen.pen = rgb(*COLORS["text"])
-        screen.text(ticker, self.center_x(ticker), 10)
-    
-    def draw_price(self, price, market_open, current_ms):
-        """Draw the current price with optional after-hours pulse."""
-        screen.font = self.large_font
-        price_str = fmt_price(price)
-        
-        if market_open:
-            screen.pen = rgb(*COLORS["text"])
-        else:
-            alpha = get_pulse_alpha(current_ms)
-            screen.pen = rgb(*blend_color(COLORS["text"], alpha))
-        
-        screen.text(price_str, self.center_x(price_str), 34)
-    
-    def draw_change(self, change, change_percent):
+    def draw_change(self, change, change_percent, y_pos):
         """Draw price change with directional coloring."""
-        screen.font = self.small_font
+        screen.font = self.font_small
         
         if change > 0:
             direction, col = "UP", COLORS["up"]
@@ -513,43 +485,95 @@ class StockDisplay:
         
         change_str = f"{direction} {fmt_change(change)} ({fmt_percent(change_percent)})"
         screen.pen = rgb(*col)
-        screen.text(change_str, self.center_x(change_str), 56)
+        screen.text(change_str, self.center_x(change_str), y_pos)
     
-    def draw_market_status(self, market_open, session, holiday):
-        """Draw market open/closed status with session info."""
-        screen.font = self.small_font
+    def draw_market_status(self, market_open, session, holiday, y_pos):
+        """Draw market status at given y position."""
+        screen.font = self.font_small
         
         if holiday:
-            # Show holiday name
             status = holiday
             screen.pen = rgb(*COLORS["after_hours"])
+        elif session == "pre-market":
+            status = "Pre-Market"
+            screen.pen = rgb(*COLORS["neutral"])
+        elif session == "post-market":
+            status = "After Hours"
+            screen.pen = rgb(*COLORS["after_hours"])
         elif market_open:
-            if session == "pre-market":
-                status = "Pre-Market"
-                screen.pen = rgb(*COLORS["neutral"])
-            elif session == "post-market":
-                status = "After Hours"
-                screen.pen = rgb(*COLORS["after_hours"])
-            else:  # regular
-                status = "Market OPEN"
-                screen.pen = rgb(*COLORS["up"])
+            status = "Market OPEN"
+            screen.pen = rgb(*COLORS["up"])
         else:
             status = "Market CLOSED"
             screen.pen = rgb(*COLORS["after_hours"])
         
-        screen.text(status, self.center_x(status), 72)
+        screen.text(status, self.center_x(status), y_pos)
     
-    def render(self, ticker, data, market_open, session, holiday, wifi_connected):
+    def render(self, ticker, data, market_open, session, holiday, wifi_connected, ticker_size):
         """Render the complete stock display."""
         current_ms = time.ticks_ms()
         change = data.get("change", 0)
+        price = data.get("price", 0)
+        change_percent = data.get("change_percent", 0)
         
+        # Clear background
         self.draw_background(market_open, change, current_ms)
-        self.draw_status_indicators(market_open, wifi_connected, current_ms)
-        self.draw_ticker(ticker)
-        self.draw_price(data.get("price", 0), market_open, current_ms)
-        self.draw_change(change, data.get("change_percent", 0))
-        self.draw_market_status(market_open, session, holiday)
+        
+        # Set color for price (pulse when market closed)
+        if market_open:
+            price_color = COLORS["text"]
+        else:
+            alpha = get_pulse_alpha(current_ms)
+            price_color = blend_color(COLORS["text"], alpha)
+        
+        price_str = fmt_price(price)
+        
+        # Layout based on ticker size mode
+        if ticker_size == TickerSize.LARGE:
+            # Standard layout: ticker, price, change, status
+            screen.font = self.font_medium
+            screen.pen = rgb(*COLORS["text"])
+            screen.text(ticker, self.center_x(ticker), 10)
+            
+            screen.pen = rgb(*price_color)
+            screen.text(price_str, self.center_x(price_str), 40)
+            
+            self.draw_change(change, change_percent, 70)
+            self.draw_market_status(market_open, session, holiday, 100)
+            
+        elif ticker_size == TickerSize.LARGER:
+            # Bigger ticker
+            screen.font = self.font_large
+            screen.pen = rgb(*COLORS["text"])
+            screen.text(ticker, self.center_x(ticker), 8)
+            
+            screen.font = self.font_medium
+            screen.pen = rgb(*price_color)
+            screen.text(price_str, self.center_x(price_str), 45)
+            
+            self.draw_change(change, change_percent, 75)
+            self.draw_market_status(market_open, session, holiday, 100)
+            
+        elif ticker_size == TickerSize.EVEN_LARGER:
+            # Large ticker, large price, no status
+            screen.font = self.font_large
+            screen.pen = rgb(*COLORS["text"])
+            screen.text(ticker, self.center_x(ticker), 10)
+            
+            screen.pen = rgb(*price_color)
+            screen.text(price_str, self.center_x(price_str), 50)
+            
+            self.draw_change(change, change_percent, 90)
+            
+        else:  # GARGANTUAN
+            # Giant ticker, price at bottom, nothing else
+            screen.font = self.font_large
+            screen.pen = rgb(*COLORS["text"])
+            screen.text(ticker, self.center_x(ticker), 30)
+            
+            screen.font = self.font_medium
+            screen.pen = rgb(*price_color)
+            screen.text(price_str, self.center_x(price_str), 95)
     
     def render_info(self, wifi_connected, last_update, market_open):
         """Render the info/status screen."""
@@ -560,13 +584,13 @@ class StockDisplay:
         screen.clear()
         
         # Title
-        screen.font = self.large_font
+        screen.font = self.font_medium
         screen.pen = rgb(*COLORS["text"])
         title = "System Info"
         screen.text(title, self.center_x(title), 6)
         
         # Info lines
-        screen.font = self.small_font
+        screen.font = self.font_small
         y_pos = 28
         line_height = 14
         
@@ -637,6 +661,7 @@ class StocksApp:
         self.display = StockDisplay()
         self.state = AppState.CONNECTING
         self.view_mode = ViewMode.STOCKS
+        self.ticker_size = TickerSize.LARGE
         self.wifi_start_time = time.ticks_ms()
         
         # Persistent state
@@ -673,6 +698,12 @@ class StocksApp:
         ) % len(STOCKS)
         State.save("stocks", self.data)
     
+    def cycle_ticker_size(self):
+        """Cycle through ticker size modes."""
+        self.ticker_size = (self.ticker_size + 1) % TickerSize._COUNT
+        size_names = ["LARGE", "LARGER", "EVEN_LARGER", "GARGANTUAN"]
+        print(f"[stocks] Ticker size: {size_names[self.ticker_size]}")
+    
     def handle_input(self):
         """Process button input."""
         # Navigation: Up = previous, Down = next (only in stocks view)
@@ -681,6 +712,10 @@ class StocksApp:
                 self.navigate_stocks(-1)
             if io.BUTTON_DOWN in io.pressed:
                 self.navigate_stocks(1)
+            
+            # A button: Cycle ticker size
+            if io.BUTTON_A in io.pressed:
+                self.cycle_ticker_size()
         
         # B button: Toggle info screen (or return from info)
         if io.BUTTON_B in io.pressed:
@@ -761,6 +796,7 @@ class StocksApp:
                 session=session,
                 holiday=holiday,
                 wifi_connected=self.data["wifi_connected"],
+                ticker_size=self.ticker_size,
             )
 
 
