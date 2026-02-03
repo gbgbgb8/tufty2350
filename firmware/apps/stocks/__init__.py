@@ -15,6 +15,14 @@ sys.path.insert(0, APP_DIR)
 
 from badgeware import run, State
 
+# Import user_message for WiFi connection feedback (like clock app)
+try:
+    from usermessage import user_message
+except ImportError:
+    # Fallback if usermessage isn't available
+    def user_message(title, lines):
+        pass
+
 # Generate icon if it doesn't exist (base64 encoded 32x32 PNG)
 icon_path = f"{APP_DIR}/icon.png"
 try:
@@ -57,7 +65,6 @@ State.load("stocks", state)
 
 stocks_state = StocksState.ConnectWiFi
 last_data_fetch_attempt = io.ticks
-connection_attempt_count = 0
 
 # Timing constants (in milliseconds since io.ticks is millisecond-based)
 UPDATE_INTERVAL = 300000  # Update every 5 minutes (300000 ms)
@@ -215,7 +222,7 @@ def init():
 
 def update():
     """Main update loop."""
-    global stocks_state, last_data_fetch_attempt, state, connection_attempt_count
+    global stocks_state, last_data_fetch_attempt, state
     
     # Tick WiFi connection
     wifi.tick()
@@ -240,7 +247,6 @@ def update():
         if stocks_state == StocksState.Running:
             stocks_state = StocksState.ConnectWiFi
             last_data_fetch_attempt = io.ticks
-            connection_attempt_count = 0
     
     # State machine for WiFi connection and data fetching
     current_time = io.ticks
@@ -248,25 +254,21 @@ def update():
     if stocks_state == StocksState.Running:
         # Check if we need to fetch data periodically
         if current_time - state["last_update"] >= UPDATE_INTERVAL:
+            user_message("Updating...", ["Fetching stock", "prices..."])
             stocks_state = StocksState.ConnectWiFi
             last_data_fetch_attempt = current_time
-            connection_attempt_count = 0
         else:
             state["wifi_connected"] = wifi.is_connected()
     
     elif stocks_state == StocksState.ConnectWiFi:
+        user_message("Please Wait", ["Connecting to WiFi..."])
         if wifi.connect():
             stocks_state = StocksState.FetchData
             state["wifi_connected"] = True
-            connection_attempt_count = 0
         else:
-            # Retry connection a few times before giving up
-            connection_attempt_count += 1
-            if connection_attempt_count >= 3:
-                # Give up and go back to running with offline state
-                stocks_state = StocksState.Running
-                state["wifi_connected"] = False
-                state["last_update"] = io.ticks  # Set update time to prevent constant retries
+            # Failed to connect, return to running with offline state
+            stocks_state = StocksState.Running
+            state["wifi_connected"] = False
     
     elif stocks_state == StocksState.FetchData:
         # Fetch data for all stocks
