@@ -51,7 +51,8 @@ except AttributeError:
 class StocksState:
     Running = 0
     ConnectWiFi = 1
-    FetchData = 2
+    WiFiConnected = 2
+    FetchData = 3
 
 # App state
 state = {
@@ -123,7 +124,11 @@ def fetch_stock_data(ticker):
 
 def fetch_all_stocks():
     """Fetch data for all stocks in the list."""
-    for ticker in stocks:
+    for i, ticker in enumerate(stocks):
+        # Show progress while fetching
+        progress = f"{i+1}/{len(stocks)}"
+        user_message("Fetching Data", [f"Fetching {ticker}...", progress])
+        
         try:
             state["stock_data"][ticker] = fetch_stock_data(ticker)
         except Exception:
@@ -254,25 +259,31 @@ def update():
     if stocks_state == StocksState.Running:
         # Check if we need to fetch data periodically
         if current_time - state["last_update"] >= UPDATE_INTERVAL:
-            user_message("Updating...", ["Fetching stock", "prices..."])
+            user_message("Stocks Update", ["Initializing", "WiFi connection..."])
             stocks_state = StocksState.ConnectWiFi
             last_data_fetch_attempt = current_time
         else:
             state["wifi_connected"] = wifi.is_connected()
     
     elif stocks_state == StocksState.ConnectWiFi:
-        user_message("Please Wait", ["Connecting to WiFi..."])
+        user_message("Connecting", ["WiFi...", "Please wait..."])
         if wifi.connect():
-            stocks_state = StocksState.FetchData
+            stocks_state = StocksState.WiFiConnected
             state["wifi_connected"] = True
         else:
             # Failed to connect, return to running with offline state
+            user_message("Connection Failed", ["WiFi unavailable", "Using cached data..."])
             stocks_state = StocksState.Running
             state["wifi_connected"] = False
+    
+    elif stocks_state == StocksState.WiFiConnected:
+        user_message("WiFi Connected", ["Fetching stock", "prices..."])
+        stocks_state = StocksState.FetchData
     
     elif stocks_state == StocksState.FetchData:
         # Fetch data for all stocks
         fetch_all_stocks()
+        user_message("Update Complete", ["Stock data", "refreshed!"])
         stocks_state = StocksState.Running
         state["wifi_connected"] = True
     
