@@ -6,31 +6,25 @@ import os
 import time
 import wifi
 import secrets
+import json
 
-# Standalone bootstrap for finding app assets
 os.chdir(APP_DIR)
-
-# Standalone bootstrap for module imports
 sys.path.insert(0, APP_DIR)
 
 from badgeware import run, State
 
-# Import user_message for WiFi connection feedback (like clock app)
 try:
     from usermessage import user_message
 except ImportError:
-    # Fallback if usermessage isn't available
     def user_message(title, lines):
         pass
 
-# Generate icon if it doesn't exist (base64 encoded 32x32 PNG)
+# Generate icon if it doesn't exist
 icon_path = f"{APP_DIR}/icon.png"
 try:
-    # Try to open the file to check if it exists
     with open(icon_path, "rb"):
         pass
 except OSError:
-    # File doesn't exist, create it
     import base64
     icon_data = base64.b64decode(
         "iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAyElEQVR42u2YQQrAMAwDNZWDHkT8h/0fpx7Eg4cRPIoH8SAe5iDeRPygHsSDhJF4EA/iQTyIB/EgXsSDeBAPwgH+EzG3KMzd2Ww2m81mM/PnP2+z2Ww2m80YY9M0lSQBUFVV13UlSYIxZls2bZskSQpBwHVdXdedd56WJWmaJkmSJEmSJEmSJEmSJEmSJEmSJEmSJEmSJP+GZLP5j9lsNv+p6xrHcRzHcRzHcRzHcRzHcRzHcRyHMQZjDMYYjDEYYzDGAAwDAAz/hf8fKxRWAStU5hsqFFYBK1TmGyoUVgErVOYbKhRWAStU5hsqFFYBK1TmGyoUVgErVOYbKhRWAStU5g8qFFYBK1TmDyoUVgErVOYPKhRWAStU5g8qFFYBK1TmDyoUVgErVOYPKhRWAStU5g8qFFYBK1TmHyoUVgErVOY3VCisAlatDXQAAAAASUVORK5CYII="
@@ -39,15 +33,22 @@ except OSError:
         with open(icon_path, "wb") as f:
             f.write(icon_data)
     except Exception:
-        pass  # If icon can't be created, the app will still work
+        pass
 
-# Import stocks list from secrets
+# Import stocks list and API key from secrets
 try:
     stocks = secrets.STOCKS
 except AttributeError:
     stocks = ["TSLA", "PLTR", "SPY", "QQQ"]
 
-# State machine for WiFi connection and data fetching
+try:
+    FINNHUB_KEY = secrets.FINNHUB_KEY
+    print("[stocks] Finnhub key loaded OK")
+except AttributeError:
+    FINNHUB_KEY = None
+    print("[stocks] WARNING: no FINNHUB_KEY in secrets.py — will use mock data")
+
+# State machine
 class StocksState:
     Running = 0
     ConnectWiFi = 1
@@ -58,17 +59,18 @@ class StocksState:
 state = {
     "current_stock_index": 0,
     "stock_data": {},
-    "last_update": -400000,  # Negative so app fetches immediately on launch
+    "last_update": -400000,
     "wifi_connected": False,
 }
 
 State.load("stocks", state)
 
 stocks_state = StocksState.ConnectWiFi
-last_data_fetch_attempt = io.ticks
+last_data_fetch_attempt = time.ticks_ms()
+wifi_connect_started = time.ticks_ms()
 
-# Timing constants (in milliseconds since io.ticks is millisecond-based)
-UPDATE_INTERVAL = 300000  # Update every 5 minutes (300000 ms)
+UPDATE_INTERVAL = 300000   # 5 minutes in ms
+WIFI_TIMEOUT = 10000       # 10 seconds before giving up on wifi
 
 # Colors
 COLOR_UP = color.rgb(0, 255, 0)
@@ -76,12 +78,13 @@ COLOR_DOWN = color.rgb(255, 0, 0)
 COLOR_NEUTRAL = color.rgb(200, 200, 200)
 COLOR_BG = color.rgb(0, 0, 0)
 COLOR_TEXT = color.rgb(255, 255, 255)
+COLOR_DIM = color.rgb(100, 100, 100)
 
 # Fonts
 large_font = pixel_font.load("/system/assets/fonts/smart.ppf")
 small_font = pixel_font.load("/system/assets/fonts/fear.ppf")
 
-screen.antialias = image.X2
+screen.antialias = image.X4
 
 # Mock stock data for fallback
 MOCK_STOCK_DATA = {
@@ -92,221 +95,263 @@ MOCK_STOCK_DATA = {
 }
 
 
+def fmt_price(val):
+    rounded = round(val, 2)
+    s = str(rounded)
+    if "." not in s:
+        s = s + ".00"
+    else:
+        parts = s.split(".")
+        if len(parts[1]) == 1:
+            s = s + "0"
+    return "$" + s
+
+
+def fmt_change(val):
+    rounded = round(val, 2)
+    s = str(rounded)
+    if "." not in s:
+        s = s + ".00"
+    else:
+        parts = s.split(".")
+        if len(parts[1]) == 1:
+            s = s + "0"
+    if rounded >= 0:
+        return "+" + s
+    return s
+
+
+def fmt_percent(val):
+    rounded = round(val, 2)
+    s = str(rounded)
+    if "." not in s:
+        s = s + ".00"
+    else:
+        parts = s.split(".")
+        if len(parts[1]) == 1:
+            s = s + "0"
+    if rounded >= 0:
+        return "+" + s + "%"
+    return s + "%"
+
+
+def center_x(text_str):
+    w = screen.measure_text(text_str)[0]
+    return (screen.width - w) // 2
+
+
 def fetch_stock_data(ticker):
-    """Fetch stock data, using mock data as fallback."""
+    """Fetch stock data from Finnhub. Falls back to mock on any failure."""
+    if FINNHUB_KEY is None:
+        print("[stocks] no API key, returning mock for " + ticker)
+        return MOCK_STOCK_DATA.get(ticker, MOCK_STOCK_DATA["TSLA"])
+
+    print("[stocks] fetching " + ticker + " from Finnhub...")
     try:
         import urequests
-        api_key = getattr(secrets, 'ALPHA_VANTAGE_KEY', 'demo')
-        url = f"https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol={ticker}&apikey={api_key}"
-        response = urequests.get(url, timeout=5)
-        
-        if response.status_code == 200:
-            data = response.json()
-            if "Global Quote" in data:
-                quote = data["Global Quote"]
-                if "05. price" in quote:
-                    price = float(quote.get("05. price", 0))
-                    change = float(quote.get("09. change", 0))
-                    change_percent = float(quote.get("10. change percent", "0").rstrip("%"))
-                    return {
-                        "price": price,
-                        "change": change,
-                        "change_percent": change_percent
-                    }
-    except ImportError:
-        pass
-    except Exception:
-        pass
-    
-    # Fallback to mock data
+        url = "https://finnhub.io/api/v1/quote?symbol=" + ticker + "&token=" + FINNHUB_KEY
+        print("[stocks] GET " + url)
+        r = urequests.get(url, timeout=10)
+        print("[stocks] status=" + str(r.status_code))
+        raw = r.text
+        print("[stocks] response: " + raw[:200])
+        data = json.loads(raw)
+        r.close()
+
+        # Finnhub returns c=0 when market is closed and no data available
+        current_price = data["c"]
+        if current_price == 0:
+            print("[stocks] Finnhub returned c=0 for " + ticker + ", using mock")
+            return MOCK_STOCK_DATA.get(ticker, MOCK_STOCK_DATA["TSLA"])
+
+        change = data["d"]          # dollar change
+        change_percent = data["dp"] # percent change
+
+        print("[stocks] OK " + ticker + " price=" + str(current_price) + " change=" + str(change))
+        return {
+            "price": current_price,
+            "change": change,
+            "change_percent": change_percent,
+        }
+    except ImportError as e:
+        print("[stocks] ImportError: " + str(e))
+    except Exception as e:
+        print("[stocks] Exception: " + str(e))
+
+    print("[stocks] falling back to mock data for " + ticker)
     return MOCK_STOCK_DATA.get(ticker, MOCK_STOCK_DATA["TSLA"])
 
 
 def fetch_all_stocks():
     """Fetch data for all stocks in the list."""
+    print("[stocks] fetch_all_stocks() called")
     for i, ticker in enumerate(stocks):
-        # Show progress while fetching
-        progress = f"{i+1}/{len(stocks)}"
-        user_message("Fetching Data", [f"Fetching {ticker}...", progress])
-        
+        progress = str(i + 1) + "/" + str(len(stocks))
+        user_message("Fetching Data", ["Fetching " + ticker + "...", progress])
+
         try:
             state["stock_data"][ticker] = fetch_stock_data(ticker)
-        except Exception:
-            # Use mock data as fallback
+        except Exception as e:
+            print("[stocks] outer exception for " + ticker + ": " + str(e))
             state["stock_data"][ticker] = MOCK_STOCK_DATA.get(ticker, MOCK_STOCK_DATA["TSLA"])
-    
-    state["last_update"] = io.ticks
+
+    state["last_update"] = time.ticks_ms()
     State.save("stocks", state)
+    print("[stocks] fetch_all_stocks() done")
 
 
 def get_current_stock():
-    """Get the current stock being displayed."""
     if state["current_stock_index"] >= len(stocks):
         state["current_stock_index"] = 0
-    
+
     ticker = stocks[state["current_stock_index"]]
-    
+
     if ticker not in state["stock_data"]:
         state["stock_data"][ticker] = MOCK_STOCK_DATA.get(ticker, MOCK_STOCK_DATA["TSLA"])
-    
+
     return ticker, state["stock_data"][ticker]
 
 
 def draw_stock_display():
-    """Draw the main stock display."""
+    """Draw the main stock display. Screen is 160x120."""
     screen.pen = COLOR_BG
     screen.clear()
-    
+
     ticker, data = get_current_stock()
-    
+
     price = data.get("price", 0)
     change = data.get("change", 0)
     change_percent = data.get("change_percent", 0)
-    
-    # Determine color based on change
+
     if change > 0:
         change_color = COLOR_UP
-        symbol = "▲"
+        direction = "UP"
     elif change < 0:
         change_color = COLOR_DOWN
-        symbol = "▼"
+        direction = "DN"
     else:
         change_color = COLOR_NEUTRAL
-        symbol = "="
-    
-    # Draw ticker symbol with WiFi indicator (large)
+        direction = "--"
+
+    # --- Ticker symbol (y=10) ---
     screen.font = large_font
     screen.pen = COLOR_TEXT
-    ticker_text = ticker
+    ticker_label = ticker
     if state["wifi_connected"]:
-        ticker_text = ticker + " 📶"  # Add WiFi indicator
-    ticker_width = screen.measure_text(ticker_text)[0]
-    screen.text(ticker_text, (screen.width - ticker_width) // 2, 20)
-    
-    # Draw price (very large)
+        ticker_label = ticker + " [W]"
+    screen.text(ticker_label, center_x(ticker_label), 10)
+
+    # --- Price (y=34) ---
     screen.font = large_font
-    price_str = f"${price:.2f}"
-    price_width = screen.measure_text(price_str)[0]
-    screen.text(price_str, (screen.width - price_width) // 2, 70)
-    
-    # Draw change with color and symbol
+    price_str = fmt_price(price)
+    screen.pen = COLOR_TEXT
+    screen.text(price_str, center_x(price_str), 34)
+
+    # --- Change line (y=58) ---
+    screen.font = small_font
+    change_str = direction + " " + fmt_change(change) + " (" + fmt_percent(change_percent) + ")"
     screen.pen = change_color
+    screen.text(change_str, center_x(change_str), 58)
+
+    # --- WiFi status (y=80) ---
     screen.font = small_font
-    change_str = f"{symbol} {abs(change):.2f} ({change_percent:+.2f}%)"
-    change_width = screen.measure_text(change_str)[0]
-    screen.text(change_str, (screen.width - change_width) // 2, 130)
-    
-    # Draw WiFi and update status at bottom
-    screen.pen = COLOR_TEXT
-    screen.font = small_font
-    
-    status_y = 160
+    screen.pen = COLOR_DIM
     if state["wifi_connected"]:
-        wifi_status = "WiFi: Connected"
+        wifi_str = "WiFi: Connected"
     else:
-        wifi_status = "WiFi: Offline"
-    
-    wifi_width = screen.measure_text(wifi_status)[0]
-    screen.text(wifi_status, (screen.width - wifi_width) // 2, status_y)
-    
-    # Draw stock index indicator
-    status_y += 20
-    index_str = f"{state['current_stock_index'] + 1}/{len(stocks)}"
-    index_width = screen.measure_text(index_str)[0]
-    screen.text(index_str, (screen.width - index_width) // 2, status_y)
+        wifi_str = "WiFi: Offline"
+    screen.text(wifi_str, center_x(wifi_str), 80)
+
+    # --- Stock index indicator (y=96) ---
+    index_str = str(state["current_stock_index"] + 1) + "/" + str(len(stocks))
+    screen.pen = COLOR_DIM
+    screen.text(index_str, center_x(index_str), 96)
 
 
 def init():
-    """Initialize the app."""
-    global state
-    
-    # Load initial mock data
     for ticker in stocks:
         if ticker not in state["stock_data"]:
             state["stock_data"][ticker] = MOCK_STOCK_DATA.get(ticker, MOCK_STOCK_DATA["TSLA"])
-    
     State.save("stocks", state)
 
 
 def update():
-    """Main update loop."""
-    global stocks_state, last_data_fetch_attempt, state
-    
-    # Tick WiFi connection
+    global stocks_state, last_data_fetch_attempt, wifi_connect_started, state
+
     wifi.tick()
-    
-    # Handle button presses for navigation
-    if io.BUTTON_A in io.pressed:
-        # Previous stock
+
+    # Button navigation
+    if io.BUTTON_A in io.pressed or io.BUTTON_UP in io.pressed:
         state["current_stock_index"] -= 1
         if state["current_stock_index"] < 0:
             state["current_stock_index"] = len(stocks) - 1
         State.save("stocks", state)
-    
-    if io.BUTTON_C in io.pressed:
-        # Next stock
+
+    if io.BUTTON_C in io.pressed or io.BUTTON_DOWN in io.pressed:
         state["current_stock_index"] += 1
         if state["current_stock_index"] >= len(stocks):
             state["current_stock_index"] = 0
         State.save("stocks", state)
-    
-    if io.BUTTON_UP in io.pressed:
-        # Also allow UP for previous stock
-        state["current_stock_index"] -= 1
-        if state["current_stock_index"] < 0:
-            state["current_stock_index"] = len(stocks) - 1
-        State.save("stocks", state)
-    
-    if io.BUTTON_DOWN in io.pressed:
-        # Also allow DOWN for next stock
-        state["current_stock_index"] += 1
-        if state["current_stock_index"] >= len(stocks):
-            state["current_stock_index"] = 0
-        State.save("stocks", state)
-    
-    # Button B triggers WiFi connection and data fetch
+
+    # Button B: manual refresh
     if io.BUTTON_B in io.pressed:
         if stocks_state == StocksState.Running:
+            print("[stocks] Button B pressed, triggering refresh")
             stocks_state = StocksState.ConnectWiFi
-            last_data_fetch_attempt = io.ticks
-    
-    # State machine for WiFi connection and data fetching
-    current_time = io.ticks
-    
+            wifi_connect_started = time.ticks_ms()
+
+    # State machine
+    current_time = time.ticks_ms()
+
     if stocks_state == StocksState.Running:
-        # Check if we need to fetch data periodically
         if current_time - state["last_update"] >= UPDATE_INTERVAL:
+            print("[stocks] auto-update interval hit, going to ConnectWiFi")
             user_message("Stocks Update", ["Initializing", "WiFi connection..."])
             stocks_state = StocksState.ConnectWiFi
-            last_data_fetch_attempt = current_time
+            wifi_connect_started = current_time
         else:
             state["wifi_connected"] = wifi.is_connected()
-    
+
     elif stocks_state == StocksState.ConnectWiFi:
-        user_message("Connecting", ["WiFi...", "Please wait..."])
-        if wifi.connect():
+        elapsed = current_time - wifi_connect_started
+        user_message("Connecting", ["WiFi...", str(elapsed // 1000) + "s..."])
+
+        if wifi.is_connected():
+            print("[stocks] wifi.is_connected() true -> WiFiConnected")
             stocks_state = StocksState.WiFiConnected
             state["wifi_connected"] = True
-        else:
-            # Failed to connect, return to running with offline state
+        elif wifi.connect():
+            print("[stocks] wifi.connect() returned truthy -> WiFiConnected")
+            stocks_state = StocksState.WiFiConnected
+            state["wifi_connected"] = True
+        elif elapsed >= WIFI_TIMEOUT:
+            print("[stocks] wifi timeout hit, giving up")
             user_message("Connection Failed", ["WiFi unavailable", "Using cached data..."])
             stocks_state = StocksState.Running
             state["wifi_connected"] = False
-    
+        # else: stay in ConnectWiFi, retry next frame
+
     elif stocks_state == StocksState.WiFiConnected:
+        print("[stocks] state=WiFiConnected -> FetchData")
         user_message("WiFi Connected", ["Fetching stock", "prices..."])
         stocks_state = StocksState.FetchData
-    
+
     elif stocks_state == StocksState.FetchData:
-        # Fetch data for all stocks
+        print("[stocks] state=FetchData, calling fetch_all_stocks()...")
         fetch_all_stocks()
         user_message("Update Complete", ["Stock data", "refreshed!"])
         stocks_state = StocksState.Running
         state["wifi_connected"] = True
-    
-    # Draw the display
+
+    # Draw every frame
     draw_stock_display()
 
 
-# Run the app
-run(update, init=init)
+def on_exit():
+    pass
+
+
+# Standalone support for Thonny debugging
+if __name__ == "__main__":
+    run(update, init=init, on_exit=on_exit)
+
