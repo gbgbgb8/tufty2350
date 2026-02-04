@@ -44,6 +44,8 @@ More details at [https://badgewa.re](https://badgewa.re)
 
 The stocks app is ready to use. It displays real-time US stock prices from the market. To get started:
 
+![Stocks App Screenshot](stocks-screenshot.jpeg)
+
 1. Copy the `stocks` app folder into your badge's `apps` folder (see [Installing Apps](#installing-apps))
 2. Get a free API key from [Finnhub](https://finnhub.io/)
 3. Connect your badge to your computer and enter disk mode (double-tap RESET)
