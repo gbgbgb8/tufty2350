@@ -13,7 +13,7 @@ import json
 os.chdir(APP_DIR)
 sys.path.insert(0, APP_DIR)
 
-from badgeware import run, State
+from badgeware import run, State, get_battery_level, is_charging
 from easing import easeOutSine
 
 try:
@@ -64,7 +64,6 @@ except AttributeError:
     LOCAL_TZ = -8
 
 EST_OFFSET = LOCAL_TZ - (-5)
-
 
 
 # =============================================================================
@@ -234,21 +233,6 @@ def fetch_market_status():
 # System Info
 # =============================================================================
 
-def get_battery_percent():
-    try:
-        from machine import ADC
-        vbat_adc = ADC(29)
-        vref_adc = ADC(28)
-        vref = vref_adc.read_u16()
-        vbat = vbat_adc.read_u16()
-        if vref == 0:
-            return None
-        voltage = (vbat / vref) * 3.3 * 2
-        percent = (voltage - 3.0) / (4.2 - 3.0) * 100
-        return max(0, min(100, int(percent)))
-    except Exception:
-        return None
-
 def get_wifi_ssid():
     try:
         if wifi.is_connected():
@@ -354,6 +338,7 @@ def is_data_stale(stock_data, market_open):
 class StockDisplay:
     def __init__(self):
         self.font_small = pixel_font.load("/system/assets/fonts/fear.ppf")
+        self.font_menu = pixel_font.load("/system/assets/fonts/nope.ppf")  # 8px, cleaner for menus
         self.font_medium = pixel_font.load("/system/assets/fonts/futile.ppf")
         self.font_large = pixel_font.load("/system/assets/fonts/ignore.ppf")
         screen.antialias = image.X4
@@ -361,6 +346,45 @@ class StockDisplay:
     def center_x(self, text):
         w = screen.measure_text(text)[0]
         return (screen.width - w) // 2
+    
+    def draw_battery(self):
+        """Draw battery indicator in upper right corner."""
+        # Get battery level (animated if charging)
+        if is_charging():
+            battery_level = (io.ticks / 20) % 100
+        else:
+            battery_level = get_battery_level()
+        
+        # Position and size
+        pos_x = screen.width - 22
+        pos_y = 4
+        width = 16
+        height = 8
+        
+        # Choose color based on level
+        if is_charging():
+            bat_color = COLORS["after_hours"]  # Blue when charging
+        elif battery_level > 50:
+            bat_color = COLORS["up"]  # Green
+        elif battery_level > 20:
+            bat_color = COLORS["neutral"]  # Yellow/white
+        else:
+            bat_color = COLORS["down"]  # Red
+        
+        # Battery outline
+        screen.pen = rgb(*bat_color)
+        screen.rectangle(pos_x, pos_y, width, height)
+        # Battery nub
+        screen.rectangle(pos_x + width, pos_y + 2, 2, 4)
+        
+        # Clear inside
+        screen.pen = rgb(*COLORS["bg"])
+        screen.rectangle(pos_x + 1, pos_y + 1, width - 2, height - 2)
+        
+        # Fill level
+        fill_width = int((width - 4) * battery_level / 100)
+        screen.pen = rgb(*bat_color)
+        screen.rectangle(pos_x + 2, pos_y + 2, fill_width, height - 4)
     
     def draw_splash(self, message, progress, total):
         """Draw startup splash screen."""
@@ -397,8 +421,11 @@ class StockDisplay:
         screen.pen = rgb(*COLORS["up"])
         screen.rectangle(bar_x, bar_y, fill_width, bar_height)
     
-    def render_stock(self, ticker, data, market_open, session, holiday, ticker_size, refreshing=False):
+    def render_stock(self, ticker, data, market_open, session, holiday, ticker_size, refreshing=False, settings=None):
         """Render main stock display."""
+        if settings is None:
+            settings = {}
+        
         current_ms = time.ticks_ms()
         change = data.get("change", 0)
         price = data.get("price", 0)
@@ -418,6 +445,10 @@ class StockDisplay:
                 base = (40, 40, 40)
             screen.pen = rgb(*blend_color(base, alpha))
         screen.clear()
+        
+        # Battery indicator in corner (if enabled)
+        if settings.get("show_battery", True):
+            self.draw_battery()
         
         # Price color
         if market_open:
@@ -523,69 +554,114 @@ class StockDisplay:
             screen.pen = rgb(*COLORS["error"])
             screen.text("! retry soon", self.center_x("! retry soon"), 110)
     
-    def render_info(self, wifi_connected, last_update, market_open):
-        """Render system info screen."""
+    def render_settings(self, wifi_connected, last_update, market_open, settings, selected_index):
+        """Render interactive settings/info screen with scrolling."""
         screen.pen = rgb(*COLORS["bg"])
         screen.clear()
         
+        # Battery icon in corner
+        self.draw_battery()
+        
         screen.font = self.font_medium
         screen.pen = rgb(*COLORS["text"])
-        title = "System Info"
-        screen.text(title, self.center_x(title), 6)
+        title = "Settings"
+        screen.text(title, self.center_x(title), 2)
         
-        screen.font = self.font_small
-        y_pos = 28
-        line_height = 14
+        # Use nope font (8px) for menu - fits better
+        screen.font = self.font_menu
+        line_height = 11
         
-        # WiFi
-        if wifi_connected:
-            screen.pen = rgb(*COLORS["up"])
-            screen.text(f"WiFi: {get_wifi_ssid()}", 8, y_pos)
-        else:
-            screen.pen = rgb(*COLORS["down"])
-            screen.text("WiFi: Disconnected", 8, y_pos)
-        y_pos += line_height
+        # Menu items: (label, value, is_toggle)
+        menu_items = [
+            ("WiFi", get_wifi_ssid() if wifi_connected else "Disconnected", False),
+            ("IP", get_ip_address(), False),
+            ("Updated", fmt_time_ago(time.ticks_ms() - last_update), False),
+            ("Battery", f"{int(get_battery_level())}%" + (" chrg" if is_charging() else ""), False),
+            ("Market", "OPEN" if market_open else "CLOSED", False),
+            ("---", "", False),  # Separator
+            ("Show Battery", "ON" if settings.get("show_battery", True) else "OFF", True),
+            ("Refresh All", "Press A", True),
+        ]
         
-        # IP
-        screen.pen = rgb(*COLORS["dim"])
-        screen.text(f"IP: {get_ip_address()}", 8, y_pos)
-        y_pos += line_height
+        # Visible area
+        menu_top = 20
+        menu_bottom = 98
+        visible_height = menu_bottom - menu_top
+        max_visible = visible_height // line_height
         
-        # Last update
-        ms_ago = time.ticks_ms() - last_update
-        screen.text(f"Updated: {fmt_time_ago(ms_ago)}", 8, y_pos)
-        y_pos += line_height
+        # Calculate scroll offset to keep selected item visible
+        scroll_offset = 0
+        if selected_index >= max_visible:
+            scroll_offset = selected_index - max_visible + 1
         
-        # Battery
-        battery = get_battery_percent()
-        if battery is not None:
-            if battery > 50:
-                screen.pen = rgb(*COLORS["up"])
-            elif battery > 20:
+        # Draw menu items
+        y_pos = menu_top
+        for i, (label, value, is_toggle) in enumerate(menu_items):
+            # Skip items above scroll
+            if i < scroll_offset:
+                continue
+            
+            # Stop if below visible area
+            if y_pos > menu_bottom:
+                break
+            
+            # Separator
+            if label == "---":
+                screen.pen = rgb(*COLORS["dim"])
+                screen.rectangle(8, y_pos + 3, screen.width - 16, 1)
+                y_pos += 8
+                continue
+            
+            # Selection highlight
+            if i == selected_index:
+                # Highlight background
+                screen.pen = rgb(40, 40, 60)
+                screen.rectangle(0, y_pos - 1, screen.width, line_height)
+                # Arrow
+                screen.pen = rgb(*COLORS["text"])
+                screen.text(">", 2, y_pos)
+            
+            # Label color
+            if is_toggle and i == selected_index:
+                screen.pen = rgb(*COLORS["text"])
+            elif is_toggle:
+                screen.pen = rgb(*COLORS["after_hours"])
+            else:
+                screen.pen = rgb(*COLORS["dim"])
+            
+            screen.text(f"{label}:", 12, y_pos)
+            
+            # Value color
+            if label == "WiFi":
+                screen.pen = rgb(*COLORS["up"]) if wifi_connected else rgb(*COLORS["down"])
+            elif label == "Market":
+                screen.pen = rgb(*COLORS["up"]) if market_open else rgb(*COLORS["after_hours"])
+            elif label == "Show Battery":
+                screen.pen = rgb(*COLORS["up"]) if settings.get("show_battery", True) else rgb(*COLORS["down"])
+            elif label == "Refresh All":
                 screen.pen = rgb(*COLORS["neutral"])
             else:
-                screen.pen = rgb(*COLORS["down"])
-            screen.text(f"Battery: {battery}%", 8, y_pos)
-        else:
+                screen.pen = rgb(*COLORS["text"])
+            
+            # Right-align value
+            val_width = screen.measure_text(value)[0]
+            screen.text(value, screen.width - val_width - 6, y_pos)
+            
+            y_pos += line_height
+        
+        # Scroll indicators
+        if scroll_offset > 0:
             screen.pen = rgb(*COLORS["dim"])
-            screen.text("Battery: N/A", 8, y_pos)
-        y_pos += line_height
+            screen.text("^", screen.width // 2 - 3, menu_top - 4)
         
-        # Market
-        if market_open:
-            screen.pen = rgb(*COLORS["up"])
-            screen.text("Market: OPEN", 8, y_pos)
-        else:
-            screen.pen = rgb(*COLORS["after_hours"])
-            screen.text("Market: CLOSED", 8, y_pos)
-        y_pos += line_height
-        
-        # Stocks
-        screen.pen = rgb(*COLORS["dim"])
-        screen.text(f"Tracking: {len(STOCKS)} stocks", 8, y_pos)
+        if scroll_offset + max_visible < len(menu_items):
+            screen.pen = rgb(*COLORS["dim"])
+            screen.text("v", screen.width // 2 - 3, menu_bottom + 2)
         
         # Footer
-        screen.text("Press B to return", self.center_x("Press B to return"), 108)
+        screen.pen = rgb(*COLORS["dim"])
+        footer = "UP/DN:Nav A:Select B:Back"
+        screen.text(footer, self.center_x(footer), 110)
 
 
 # =============================================================================
@@ -602,6 +678,15 @@ class StocksApp:
         self.market_open = False
         self.session = None
         self.holiday = None
+        
+        # Settings
+        self.settings = {
+            "show_battery": True,
+        }
+        
+        # Settings menu state
+        self.settings_index = 0
+        self.settings_menu_count = 8  # Total menu items including separator
         
         # Stock data cache
         self.stock_data = {}
@@ -634,6 +719,28 @@ class StocksApp:
             return  # No input during startup
         
         if self.mode == AppMode.INFO:
+            # Settings menu navigation
+            if io.BUTTON_UP in io.pressed:
+                self.settings_index = (self.settings_index - 1) % self.settings_menu_count
+                # Skip separator
+                if self.settings_index == 5:
+                    self.settings_index = 4
+            
+            if io.BUTTON_DOWN in io.pressed:
+                self.settings_index = (self.settings_index + 1) % self.settings_menu_count
+                # Skip separator
+                if self.settings_index == 5:
+                    self.settings_index = 6
+            
+            # A button: Toggle selected setting
+            if io.BUTTON_A in io.pressed:
+                if self.settings_index == 6:  # Battery Icon toggle
+                    self.settings["show_battery"] = not self.settings["show_battery"]
+                    print(f"[stocks] Battery icon: {self.settings['show_battery']}")
+                elif self.settings_index == 7:  # Refresh Now
+                    self.force_refresh_all()
+            
+            # B button: Back to stocks
             if io.BUTTON_B in io.pressed:
                 self.mode = AppMode.NORMAL
             return
@@ -649,7 +756,18 @@ class StocksApp:
             self.ticker_size = (self.ticker_size + 1) % TickerSize._COUNT
         
         if io.BUTTON_B in io.pressed:
+            self.settings_index = 6  # Start on first toggle option
             self.mode = AppMode.INFO
+    
+    def force_refresh_all(self):
+        """Force refresh all stock data."""
+        print("[stocks] Force refresh all...")
+        for ticker in STOCKS:
+            result = fetch_stock_data(ticker)
+            if result:
+                self.stock_data[ticker] = result
+            else:
+                self.stock_data[ticker]["error"] = True
     
     def do_startup(self):
         """Handle startup sequence - fetch all stocks with progress."""
@@ -753,7 +871,13 @@ class StocksApp:
                 t = data.get("last_fetch_ms", 0)
                 if t > latest:
                     latest = t
-            self.display.render_info(self.wifi_connected, latest, self.market_open)
+            self.display.render_settings(
+                self.wifi_connected, 
+                latest, 
+                self.market_open,
+                self.settings,
+                self.settings_index
+            )
             return
         
         # Normal mode
@@ -767,7 +891,8 @@ class StocksApp:
             self.session,
             self.holiday,
             self.ticker_size,
-            self.refreshing
+            self.refreshing,
+            self.settings
         )
 
 
