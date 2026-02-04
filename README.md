@@ -5,11 +5,16 @@ Perfect for mini dashboards, fast-paced games, and eye-catching widgets.
 
 Get your very own Tufty from [https://shop.pimoroni.com/products/tufty-2350](https://shop.pimoroni.com/products/tufty-2350)
 
+**About This Fork**
+
+This is a variant of the Tufty 2350 Badgeware, customized for US users with US-focused apps and regional settings. And apps for any region (customizable).  Importantly, the 'dev' has no idea what he's doing. So YMMV, and YOLO.
+
 ![Tufty 2350 front](https://badgewa.re/static/images/tufty_web_front.png)
 
 - [Specs](#specs)
 - [Meet The Badgeware Family](#meet-the-badgeware-family)
 - [Help](#help)
+  - [Quick Start: Stocks App](#quick-start-stocks-app)
   - [Updating/Reflashing Firmware](#updatingreflashing-firmware)
   - [Installing Apps](#installing-apps)
   - [Configuring WiFi](#configuring-wifi)
@@ -34,6 +39,22 @@ Get your very own Tufty from [https://shop.pimoroni.com/products/tufty-2350](htt
 More details at [https://badgewa.re](https://badgewa.re)
 
 ## Help
+
+### Quick Start: Stocks App
+
+The stocks app is ready to use. It displays real-time US stock prices from the market. To get started:
+
+1. Copy the `stocks` app folder into your badge's `apps` folder (see [Installing Apps](#installing-apps))
+2. Get a free API key from [Finnhub](https://finnhub.io/)
+3. Connect your badge to your computer and enter disk mode (double-tap RESET)
+4. Edit `secrets.py` and set:
+   - `WIFI_SSID` = your WiFi network name
+   - `WIFI_PASSWORD` = your WiFi password
+   - `FINNHUB_KEY` = your API key from Finnhub
+   - `STOCKS` = list of stock symbols (default: `["TSLA", "PLTR", "SPY", "QQQ"]`)
+5. Safely unmount and reboot
+
+The app works offline with fallback data if WiFi is unavailable.
 
 ### Updating/Reflashing Firmware
 
