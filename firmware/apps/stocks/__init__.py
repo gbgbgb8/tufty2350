@@ -57,39 +57,6 @@ EST_OFFSET = LOCAL_TZ - (-5)  # Hours to ADD to local time to get EST
 
 
 # =============================================================================
-# Icon Generation (lazy-loaded)
-# =============================================================================
-
-ICON_B64 = (
-    "iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAyElEQVR42u2YQQrAMAwDNZWDHkT8h"
-    "/0fpx7Eg4cRPIoH8SAe5iDeRPygHsSDhJF4EA/iQTyIB/EgXsSDeBAPwgH+EzG3KMzd2Ww2m81m"
-    "M/PnP2+z2Ww2m80YY9M0lSQBUFVV13UlSYIxZls2bZskSQpBwHVdXdedd56WJWmaJkmSJEmSJEmS"
-    "JEmSJEmSJEmSJEmSJEmSJP+GZLP5j9lsNv+p6xrHcRzHcRzHcRzHcRzHcRzHcRyHMQZjDMYYjDEY"
-    "YzDGAAwDAAz/hf8fKxRWAStU5hsqFFYBK1TmGyoUVgErVOYbKhRWAStU5hsqFFYBK1TmGyoUVgEr"
-    "VOYbKhRWAStU5g8qFFYBK1TmDyoUVgErVOYPKhRWAStU5g8qFFYBK1TmDyoUVgErVOYPKhRWAStU"
-    "5g8qFFYBK1TmHyoUVgErVOY3VCisAlatDXQAAAAASUVORK5CYII="
-)
-
-def _ensure_icon():
-    """Generate icon file if missing."""
-    icon_path = f"{APP_DIR}/icon.png"
-    try:
-        with open(icon_path, "rb"):
-            return
-    except OSError:
-        pass
-    
-    try:
-        import base64
-        with open(icon_path, "wb") as f:
-            f.write(base64.b64decode(ICON_B64))
-    except Exception:
-        pass
-
-_ensure_icon()
-
-
-# =============================================================================
 # Load Configuration from secrets.py
 # =============================================================================
 
