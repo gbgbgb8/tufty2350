@@ -1,5 +1,5 @@
 # Stocks app for Tufty2350
-# Improved version with cleaner code organization and better UX
+# Smart fetching with splash screen and responsive UI
 
 APP_DIR = "/system/apps/stocks"
 
@@ -27,12 +27,22 @@ except ImportError:
 # Configuration
 # =============================================================================
 
-UPDATE_INTERVAL_MS = 10_000  # 10 seconds
-WIFI_TIMEOUT_MS = 10_000      # 10 seconds
-ANIMATION_PERIOD_MS = 2_000   # Pulse cycle
-LIVE_INDICATOR_PERIOD_MS = 1_500  # Faster pulse for live dot
+# Freshness thresholds
+FRESH_MS = 60_000              # 1 min - data is fresh, no fetch needed
+STALE_MS = 300_000             # 5 min - background refresh
+MARKET_CLOSED_STALE_MS = 900_000  # 15 min when market closed
 
-# Colors (defined as tuples for easier manipulation)
+# Background fetch timing  
+BACKGROUND_CHECK_MS = 60_000   # Check one background stock per minute
+
+# WiFi
+WIFI_TIMEOUT_MS = 10_000       # 10 seconds
+
+# Animation
+ANIMATION_PERIOD_MS = 2_000
+LIVE_INDICATOR_PERIOD_MS = 1_500
+
+# Colors
 COLORS = {
     "up": (0, 255, 0),
     "down": (255, 0, 0),
@@ -41,46 +51,41 @@ COLORS = {
     "text": (255, 255, 255),
     "dim": (100, 100, 100),
     "after_hours": (100, 100, 255),
+    "error": (255, 100, 100),
 }
 
-# Market hours - now fetched from API, these are fallback only
-MARKET_OPEN_HOUR = 9.5   # 9:30 AM EST
-MARKET_CLOSE_HOUR = 16.0  # 4:00 PM EST
+# Market hours fallback
+MARKET_OPEN_HOUR = 9.5
+MARKET_CLOSE_HOUR = 16.0
 
-# Timezone offset for fallback calculation only
 try:
-    LOCAL_TZ = secrets.TIMEZONE  # e.g., -8 for Pacific
+    LOCAL_TZ = secrets.TIMEZONE
 except AttributeError:
-    LOCAL_TZ = -8  # Default to Pacific
+    LOCAL_TZ = -8
 
-EST_OFFSET = LOCAL_TZ - (-5)  # Hours to ADD to local time to get EST
+EST_OFFSET = LOCAL_TZ - (-5)
 
-
-# =============================================================================
-# Load Configuration from secrets.py
-# =============================================================================
-
-def _load_config():
-    """Load stocks list and API key from secrets."""
-    try:
-        stock_list = secrets.STOCKS
-    except AttributeError:
-        stock_list = ["TSLA", "PLTR", "SPY", "QQQ"]
-    
-    try:
-        api_key = secrets.FINNHUB_KEY
-        print("[stocks] Finnhub key loaded OK")
-    except AttributeError:
-        api_key = None
-        print("[stocks] WARNING: no FINNHUB_KEY in secrets.py — will use mock data")
-    
-    return stock_list, api_key
-
-STOCKS, FINNHUB_KEY = _load_config()
 
 
 # =============================================================================
-# Mock Data (fallback when offline or no API key)
+# Load Configuration
+# =============================================================================
+
+try:
+    STOCKS = secrets.STOCKS
+except AttributeError:
+    STOCKS = ["TSLA", "PLTR", "SPY", "QQQ"]
+
+try:
+    FINNHUB_KEY = secrets.FINNHUB_KEY
+    print("[stocks] Finnhub key loaded OK")
+except AttributeError:
+    FINNHUB_KEY = None
+    print("[stocks] WARNING: no FINNHUB_KEY - using mock data")
+
+
+# =============================================================================
+# Mock Data
 # =============================================================================
 
 MOCK_DATA = {
@@ -91,69 +96,59 @@ MOCK_DATA = {
 }
 
 def get_mock_data(ticker):
-    """Return mock data for a ticker, with sensible default."""
-    return MOCK_DATA.get(ticker, MOCK_DATA["TSLA"]).copy()
+    base = MOCK_DATA.get(ticker, MOCK_DATA["TSLA"])
+    return {
+        "price": base["price"],
+        "change": base["change"],
+        "change_percent": base["change_percent"],
+        "last_fetch_ms": time.ticks_ms(),
+        "error": False,
+    }
 
 
 # =============================================================================
-# State Machine
+# App Modes
 # =============================================================================
 
-class AppState:
-    RUNNING = 0
-    CONNECTING = 1
-    CONNECTED = 2
-    FETCHING = 3
-
-
-class ViewMode:
-    STOCKS = 0
-    INFO = 1
+class AppMode:
+    STARTUP = 0     # Splash screen during initial fetch
+    NORMAL = 1      # Regular stock display
+    INFO = 2        # System info screen
 
 
 class TickerSize:
-    LARGE = 0       # Default
-    LARGER = 1      # Bigger
-    EVEN_LARGER = 2 # Even bigger
-    GARGANTUAN = 3  # Full screen ticker
-    _COUNT = 4      # For cycling
+    LARGE = 0
+    LARGER = 1
+    EVEN_LARGER = 2
+    GARGANTUAN = 3
+    _COUNT = 4
 
 
 # =============================================================================
-# Formatting Utilities (DRY)
+# Formatting
 # =============================================================================
 
 def _fmt_decimal(val, decimals=2):
-    """Format a number with fixed decimal places."""
     rounded = round(val, decimals)
     s = str(rounded)
     if "." not in s:
         return s + "." + "0" * decimals
     integer, frac = s.split(".")
-    # Pad with zeros (ljust not available in MicroPython)
     while len(frac) < decimals:
         frac += "0"
     return integer + "." + frac
 
-
 def fmt_price(val):
-    """Format as currency: $123.45"""
     return "$" + _fmt_decimal(val, 2)
 
-
 def fmt_change(val):
-    """Format change with sign: +1.23 or -1.23"""
     prefix = "+" if val >= 0 else ""
     return prefix + _fmt_decimal(val, 2)
 
-
 def fmt_percent(val):
-    """Format percentage with sign: +1.23% or -1.23%"""
     return fmt_change(val) + "%"
 
-
 def fmt_time_ago(ms_ago):
-    """Format milliseconds ago as readable string."""
     if ms_ago < 0:
         return "Never"
     secs = ms_ago // 1000
@@ -165,65 +160,46 @@ def fmt_time_ago(ms_ago):
 
 
 # =============================================================================
-# Market Hours Utilities
+# Market Status
 # =============================================================================
 
+_market_cache = {
+    "is_open": None,
+    "session": None,
+    "holiday": None,
+    "last_fetch": 0,
+}
+MARKET_CACHE_MS = 60_000
+
 def is_market_open_fallback():
-    """Fallback: Check market hours using local time calculation."""
     try:
         now = time.localtime()
-        weekday = now[6]  # 0=Monday, 6=Sunday
+        weekday = now[6]
         hour = now[3]
         minute = now[4]
-        
-        # Convert local time to EST
         est_hour = hour - EST_OFFSET
         est_weekday = weekday
-        
-        # Handle day rollover
         if est_hour >= 24:
             est_hour -= 24
             est_weekday = (weekday + 1) % 7
         elif est_hour < 0:
             est_hour += 24
             est_weekday = (weekday - 1) % 7
-        
-        # Weekend check (in EST)
         if est_weekday > 4:
             return False, None, None
-        
         current_time = est_hour + minute / 60.0
         is_open = MARKET_OPEN_HOUR <= current_time < MARKET_CLOSE_HOUR
-        session = "regular" if is_open else None
-        return is_open, session, None
+        return is_open, "regular" if is_open else None, None
     except Exception:
-        return True, None, None  # Assume open on error
-
-
-# Cache for market status (avoid hammering API)
-_market_status_cache = {
-    "is_open": None,
-    "session": None,
-    "holiday": None,
-    "last_fetch": 0,
-}
-MARKET_STATUS_CACHE_MS = 60_000  # Cache for 1 minute
-
+        return True, None, None
 
 def fetch_market_status():
-    """Fetch market status from Finnhub API."""
-    global _market_status_cache
-    
+    global _market_cache
     now = time.ticks_ms()
     
-    # Return cached if fresh
-    if _market_status_cache["is_open"] is not None:
-        if now - _market_status_cache["last_fetch"] < MARKET_STATUS_CACHE_MS:
-            return (
-                _market_status_cache["is_open"],
-                _market_status_cache["session"],
-                _market_status_cache["holiday"],
-            )
+    if _market_cache["is_open"] is not None:
+        if now - _market_cache["last_fetch"] < MARKET_CACHE_MS:
+            return (_market_cache["is_open"], _market_cache["session"], _market_cache["holiday"])
     
     if FINNHUB_KEY is None:
         return is_market_open_fallback()
@@ -232,92 +208,56 @@ def fetch_market_status():
         import urequests
         url = f"https://finnhub.io/api/v1/stock/market-status?exchange=US&token={FINNHUB_KEY}"
         resp = urequests.get(url, timeout=5)
-        
         if resp.status_code != 200:
             resp.close()
             return is_market_open_fallback()
-        
         data = json.loads(resp.text)
         resp.close()
         
         is_open = data.get("isOpen", False)
-        session = data.get("session")  # pre-market, regular, post-market, or None
-        holiday = data.get("holiday")  # Holiday name or None
+        session = data.get("session")
+        holiday = data.get("holiday")
         
-        # Update cache
-        _market_status_cache["is_open"] = is_open
-        _market_status_cache["session"] = session
-        _market_status_cache["holiday"] = holiday
-        _market_status_cache["last_fetch"] = now
+        _market_cache["is_open"] = is_open
+        _market_cache["session"] = session
+        _market_cache["holiday"] = holiday
+        _market_cache["last_fetch"] = now
         
-        print(f"[stocks] Market status: open={is_open}, session={session}, holiday={holiday}")
+        print(f"[stocks] Market: open={is_open}, session={session}")
         return is_open, session, holiday
-        
     except Exception as e:
         print(f"[stocks] Market status error: {e}")
         return is_market_open_fallback()
 
 
-def is_market_open():
-    """Check if market is open (uses cached API result)."""
-    is_open, _, _ = fetch_market_status()
-    return is_open
-
-
-def get_market_session():
-    """Get current market session (pre-market, regular, post-market, or None)."""
-    _, session, _ = fetch_market_status()
-    return session
-
-
-def get_market_holiday():
-    """Get holiday name if market is closed for holiday."""
-    _, _, holiday = fetch_market_status()
-    return holiday
-
-
 # =============================================================================
-# System Info Utilities
+# System Info
 # =============================================================================
 
 def get_battery_percent():
-    """Read battery percentage. Returns None if not available."""
     try:
-        # Tufty 2350 battery reading via ADC
         from machine import ADC
-        vbat_adc = ADC(29)  # Battery voltage on GPIO29
-        vref_adc = ADC(28)  # Reference voltage on GPIO28
-        
-        # Read values
+        vbat_adc = ADC(29)
+        vref_adc = ADC(28)
         vref = vref_adc.read_u16()
         vbat = vbat_adc.read_u16()
-        
         if vref == 0:
             return None
-        
-        # Calculate voltage (3.3V reference, voltage divider)
         voltage = (vbat / vref) * 3.3 * 2
-        
-        # Estimate percentage (3.0V = 0%, 4.2V = 100%)
         percent = (voltage - 3.0) / (4.2 - 3.0) * 100
         return max(0, min(100, int(percent)))
     except Exception:
         return None
 
-
 def get_wifi_ssid():
-    """Get connected WiFi SSID."""
     try:
         if wifi.is_connected():
-            # Try to get SSID from secrets
             return getattr(secrets, "WIFI_SSID", "Connected")
         return "Not connected"
     except Exception:
         return "Unknown"
 
-
 def get_ip_address():
-    """Get current IP address."""
     try:
         import network
         wlan = network.WLAN(network.STA_IF)
@@ -327,19 +267,19 @@ def get_ip_address():
     except Exception:
         return "N/A"
 
+
+# =============================================================================
+# Animation
+# =============================================================================
+
 def get_pulse_alpha(current_ms, period=ANIMATION_PERIOD_MS):
-    """Get alpha value (0.5-1.0) for smooth pulsing animation."""
     phase = (current_ms % period) / period
     return 0.5 + easeOutSine(phase) * 0.5
 
-
 def blend_color(base_rgb, alpha):
-    """Apply alpha to an RGB tuple."""
     return tuple(int(c * alpha) for c in base_rgb)
 
-
 def rgb(r, g, b):
-    """Convert RGB tuple to color value."""
     return color.rgb(r, g, b)
 
 
@@ -348,12 +288,12 @@ def rgb(r, g, b):
 # =============================================================================
 
 def fetch_stock_data(ticker):
-    """Fetch stock data from Finnhub API. Falls back to mock on failure."""
+    """Fetch single stock. Returns dict with price, change, last_fetch_ms, error."""
     if FINNHUB_KEY is None:
-        print(f"[stocks] No API key, using mock for {ticker}")
+        print(f"[stocks] No API key, mock for {ticker}")
         return get_mock_data(ticker)
     
-    print(f"[stocks] Fetching {ticker} from Finnhub...")
+    print(f"[stocks] Fetching {ticker}...")
     try:
         import urequests
         url = f"https://finnhub.io/api/v1/quote?symbol={ticker}&token={FINNHUB_KEY}"
@@ -362,131 +302,124 @@ def fetch_stock_data(ticker):
         if resp.status_code != 200:
             print(f"[stocks] HTTP {resp.status_code} for {ticker}")
             resp.close()
-            return get_mock_data(ticker)
+            return None  # Signal error
         
         data = json.loads(resp.text)
         resp.close()
         
-        # Finnhub returns c=0 when no data available
         if data.get("c", 0) == 0:
-            print(f"[stocks] No data for {ticker}, using mock")
-            return get_mock_data(ticker)
+            print(f"[stocks] No data for {ticker}")
+            return None
         
         result = {
             "price": data["c"],
             "change": data.get("d", 0) or 0,
             "change_percent": data.get("dp", 0) or 0,
+            "last_fetch_ms": time.ticks_ms(),
+            "error": False,
         }
-        print(f"[stocks] {ticker}: ${result['price']:.2f} ({result['change']:+.2f})")
+        print(f"[stocks] {ticker}: ${result['price']:.2f}")
         return result
         
-    except ImportError as e:
-        print(f"[stocks] ImportError: {e}")
     except Exception as e:
-        print(f"[stocks] Error fetching {ticker}: {e}")
-    
-    return get_mock_data(ticker)
+        print(f"[stocks] Error {ticker}: {e}")
+        return None
 
 
-def fetch_all_stocks(app_state):
-    """Fetch data for all configured stocks."""
-    print("[stocks] Fetching all stocks...")
-    for i, ticker in enumerate(STOCKS):
-        user_message("Fetching Data", [f"Fetching {ticker}...", f"{i + 1}/{len(STOCKS)}"])
-        try:
-            app_state["stock_data"][ticker] = fetch_stock_data(ticker)
-        except Exception as e:
-            print(f"[stocks] Error: {e}")
-            app_state["stock_data"][ticker] = get_mock_data(ticker)
-    
-    app_state["last_update"] = time.ticks_ms()
-    State.save("stocks", app_state)
-    print("[stocks] Fetch complete")
+def get_data_age(stock_data):
+    """Get age of stock data in ms."""
+    if stock_data is None:
+        return 999999999
+    last_fetch = stock_data.get("last_fetch_ms", 0)
+    return time.ticks_ms() - last_fetch
+
+
+def is_data_fresh(stock_data, market_open):
+    """Check if data is fresh enough to not need refresh."""
+    age = get_data_age(stock_data)
+    return age < FRESH_MS
+
+
+def is_data_stale(stock_data, market_open):
+    """Check if data needs background refresh."""
+    age = get_data_age(stock_data)
+    threshold = STALE_MS if market_open else MARKET_CLOSED_STALE_MS
+    return age > threshold
 
 
 # =============================================================================
-# Display Rendering
+# Display
 # =============================================================================
 
 class StockDisplay:
-    """Handles all screen rendering for the stocks app."""
-    
     def __init__(self):
-        # Load different size pixel fonts for different display modes
-        # Available: ark(6), sins(7), nope(8), smart(9), fear(11), curse(12), futile(14), ignore(17)
-        self.font_small = pixel_font.load("/system/assets/fonts/fear.ppf")      # 11px
-        self.font_medium = pixel_font.load("/system/assets/fonts/futile.ppf")   # 14px
-        self.font_large = pixel_font.load("/system/assets/fonts/ignore.ppf")    # 17px
+        self.font_small = pixel_font.load("/system/assets/fonts/fear.ppf")
+        self.font_medium = pixel_font.load("/system/assets/fonts/futile.ppf")
+        self.font_large = pixel_font.load("/system/assets/fonts/ignore.ppf")
         screen.antialias = image.X4
     
     def center_x(self, text):
-        """Calculate X position to center text with current font."""
         w = screen.measure_text(text)[0]
         return (screen.width - w) // 2
     
-    def draw_background(self, market_open, change, current_ms):
-        """Draw background with optional pulse during market hours."""
+    def draw_splash(self, message, progress, total):
+        """Draw startup splash screen."""
+        screen.pen = rgb(*COLORS["bg"])
+        screen.clear()
+        
+        # Title
+        screen.font = self.font_medium
+        screen.pen = rgb(*COLORS["text"])
+        title = "STONKS"
+        screen.text(title, self.center_x(title), 20)
+        
+        # Status message
+        screen.font = self.font_small
+        screen.pen = rgb(*COLORS["dim"])
+        screen.text(message, self.center_x(message), 55)
+        
+        # Progress
+        progress_str = f"({progress}/{total})"
+        screen.text(progress_str, self.center_x(progress_str), 75)
+        
+        # Simple progress bar
+        bar_width = 120
+        bar_x = (screen.width - bar_width) // 2
+        bar_y = 95
+        bar_height = 8
+        
+        # Background
+        screen.pen = rgb(*COLORS["dim"])
+        screen.rectangle(bar_x, bar_y, bar_width, bar_height)
+        
+        # Fill
+        fill_width = int(bar_width * progress / total) if total > 0 else 0
+        screen.pen = rgb(*COLORS["up"])
+        screen.rectangle(bar_x, bar_y, fill_width, bar_height)
+    
+    def render_stock(self, ticker, data, market_open, session, holiday, ticker_size, refreshing=False):
+        """Render main stock display."""
+        current_ms = time.ticks_ms()
+        change = data.get("change", 0)
+        price = data.get("price", 0)
+        change_percent = data.get("change_percent", 0)
+        has_error = data.get("error", False)
+        
+        # Background
         if not market_open:
             screen.pen = rgb(*COLORS["bg"])
         else:
             alpha = get_pulse_alpha(current_ms)
             if change > 0:
-                base = (30, 60, 30)  # Dim green
+                base = (30, 60, 30)
             elif change < 0:
-                base = (60, 30, 30)  # Dim red
+                base = (60, 30, 30)
             else:
-                base = (40, 40, 40)  # Neutral
+                base = (40, 40, 40)
             screen.pen = rgb(*blend_color(base, alpha))
         screen.clear()
-    
-    def draw_change(self, change, change_percent, y_pos):
-        """Draw price change with directional coloring."""
-        screen.font = self.font_small
         
-        if change > 0:
-            direction, col = "UP", COLORS["up"]
-        elif change < 0:
-            direction, col = "DN", COLORS["down"]
-        else:
-            direction, col = "--", COLORS["neutral"]
-        
-        change_str = f"{direction} {fmt_change(change)} ({fmt_percent(change_percent)})"
-        screen.pen = rgb(*col)
-        screen.text(change_str, self.center_x(change_str), y_pos)
-    
-    def draw_market_status(self, market_open, session, holiday, y_pos):
-        """Draw market status at given y position."""
-        screen.font = self.font_small
-        
-        if holiday:
-            status = holiday
-            screen.pen = rgb(*COLORS["after_hours"])
-        elif session == "pre-market":
-            status = "Pre-Market"
-            screen.pen = rgb(*COLORS["neutral"])
-        elif session == "post-market":
-            status = "After Hours"
-            screen.pen = rgb(*COLORS["after_hours"])
-        elif market_open:
-            status = "Market OPEN"
-            screen.pen = rgb(*COLORS["up"])
-        else:
-            status = "Market CLOSED"
-            screen.pen = rgb(*COLORS["after_hours"])
-        
-        screen.text(status, self.center_x(status), y_pos)
-    
-    def render(self, ticker, data, market_open, session, holiday, wifi_connected, ticker_size):
-        """Render the complete stock display."""
-        current_ms = time.ticks_ms()
-        change = data.get("change", 0)
-        price = data.get("price", 0)
-        change_percent = data.get("change_percent", 0)
-        
-        # Clear background
-        self.draw_background(market_open, change, current_ms)
-        
-        # Set color for price (pulse when market closed)
+        # Price color
         if market_open:
             price_color = COLORS["text"]
         else:
@@ -495,9 +428,38 @@ class StockDisplay:
         
         price_str = fmt_price(price)
         
-        # Layout based on ticker size mode
+        # Change color
+        if change > 0:
+            change_color = COLORS["up"]
+            direction = "UP"
+        elif change < 0:
+            change_color = COLORS["down"]
+            direction = "DN"
+        else:
+            change_color = COLORS["neutral"]
+            direction = "--"
+        
+        change_str = f"{direction} {fmt_change(change)} ({fmt_percent(change_percent)})"
+        
+        # Market status text
+        if holiday:
+            status_text = holiday
+            status_color = COLORS["after_hours"]
+        elif session == "pre-market":
+            status_text = "Pre-Market"
+            status_color = COLORS["neutral"]
+        elif session == "post-market":
+            status_text = "After Hours"
+            status_color = COLORS["after_hours"]
+        elif market_open:
+            status_text = "Market OPEN"
+            status_color = COLORS["up"]
+        else:
+            status_text = "Market CLOSED"
+            status_color = COLORS["after_hours"]
+        
+        # Layout based on size
         if ticker_size == TickerSize.LARGE:
-            # Standard layout: ticker, price, change, status
             screen.font = self.font_medium
             screen.pen = rgb(*COLORS["text"])
             screen.text(ticker, self.center_x(ticker), 10)
@@ -505,11 +467,14 @@ class StockDisplay:
             screen.pen = rgb(*price_color)
             screen.text(price_str, self.center_x(price_str), 40)
             
-            self.draw_change(change, change_percent, 70)
-            self.draw_market_status(market_open, session, holiday, 100)
+            screen.font = self.font_small
+            screen.pen = rgb(*change_color)
+            screen.text(change_str, self.center_x(change_str), 70)
+            
+            screen.pen = rgb(*status_color)
+            screen.text(status_text, self.center_x(status_text), 95)
             
         elif ticker_size == TickerSize.LARGER:
-            # Bigger ticker
             screen.font = self.font_large
             screen.pen = rgb(*COLORS["text"])
             screen.text(ticker, self.center_x(ticker), 8)
@@ -518,11 +483,14 @@ class StockDisplay:
             screen.pen = rgb(*price_color)
             screen.text(price_str, self.center_x(price_str), 45)
             
-            self.draw_change(change, change_percent, 75)
-            self.draw_market_status(market_open, session, holiday, 100)
+            screen.font = self.font_small
+            screen.pen = rgb(*change_color)
+            screen.text(change_str, self.center_x(change_str), 75)
+            
+            screen.pen = rgb(*status_color)
+            screen.text(status_text, self.center_x(status_text), 95)
             
         elif ticker_size == TickerSize.EVEN_LARGER:
-            # Large ticker, large price, no status
             screen.font = self.font_large
             screen.pen = rgb(*COLORS["text"])
             screen.text(ticker, self.center_x(ticker), 10)
@@ -530,56 +498,61 @@ class StockDisplay:
             screen.pen = rgb(*price_color)
             screen.text(price_str, self.center_x(price_str), 50)
             
-            self.draw_change(change, change_percent, 90)
+            screen.font = self.font_small
+            screen.pen = rgb(*change_color)
+            screen.text(change_str, self.center_x(change_str), 90)
             
         else:  # GARGANTUAN
-            # Giant ticker, price at bottom, nothing else
             screen.font = self.font_large
             screen.pen = rgb(*COLORS["text"])
             screen.text(ticker, self.center_x(ticker), 30)
             
             screen.font = self.font_medium
             screen.pen = rgb(*price_color)
-            screen.text(price_str, self.center_x(price_str), 95)
+            screen.text(price_str, self.center_x(price_str), 85)
+        
+        # Refreshing indicator (small text at bottom)
+        if refreshing:
+            screen.font = self.font_small
+            screen.pen = rgb(*COLORS["dim"])
+            screen.text("refreshing...", self.center_x("refreshing..."), 110)
+        
+        # Error indicator
+        if has_error:
+            screen.font = self.font_small
+            screen.pen = rgb(*COLORS["error"])
+            screen.text("! retry soon", self.center_x("! retry soon"), 110)
     
     def render_info(self, wifi_connected, last_update, market_open):
-        """Render the info/status screen."""
-        current_ms = time.ticks_ms()
-        
-        # Dark background
+        """Render system info screen."""
         screen.pen = rgb(*COLORS["bg"])
         screen.clear()
         
-        # Title
         screen.font = self.font_medium
         screen.pen = rgb(*COLORS["text"])
         title = "System Info"
         screen.text(title, self.center_x(title), 6)
         
-        # Info lines
         screen.font = self.font_small
         y_pos = 28
         line_height = 14
         
-        # WiFi Status
+        # WiFi
         if wifi_connected:
-            ssid = get_wifi_ssid()
             screen.pen = rgb(*COLORS["up"])
-            screen.text(f"WiFi: {ssid}", 8, y_pos)
+            screen.text(f"WiFi: {get_wifi_ssid()}", 8, y_pos)
         else:
             screen.pen = rgb(*COLORS["down"])
             screen.text("WiFi: Disconnected", 8, y_pos)
         y_pos += line_height
         
-        # IP Address
+        # IP
         screen.pen = rgb(*COLORS["dim"])
-        ip = get_ip_address()
-        screen.text(f"IP: {ip}", 8, y_pos)
+        screen.text(f"IP: {get_ip_address()}", 8, y_pos)
         y_pos += line_height
         
-        # Last Update
+        # Last update
         ms_ago = time.ticks_ms() - last_update
-        screen.pen = rgb(*COLORS["dim"])
         screen.text(f"Updated: {fmt_time_ago(ms_ago)}", 8, y_pos)
         y_pos += line_height
         
@@ -598,7 +571,7 @@ class StockDisplay:
             screen.text("Battery: N/A", 8, y_pos)
         y_pos += line_height
         
-        # Market Status
+        # Market
         if market_open:
             screen.pen = rgb(*COLORS["up"])
             screen.text("Market: OPEN", 8, y_pos)
@@ -607,14 +580,12 @@ class StockDisplay:
             screen.text("Market: CLOSED", 8, y_pos)
         y_pos += line_height
         
-        # Stock count
+        # Stocks
         screen.pen = rgb(*COLORS["dim"])
         screen.text(f"Tracking: {len(STOCKS)} stocks", 8, y_pos)
         
-        # Footer hint
-        screen.pen = rgb(*COLORS["dim"])
-        hint = "Press B to return"
-        screen.text(hint, self.center_x(hint), 108)
+        # Footer
+        screen.text("Press B to return", self.center_x("Press B to return"), 108)
 
 
 # =============================================================================
@@ -622,149 +593,182 @@ class StockDisplay:
 # =============================================================================
 
 class StocksApp:
-    """Main application controller."""
-    
     def __init__(self):
         self.display = StockDisplay()
-        self.state = AppState.CONNECTING
-        self.view_mode = ViewMode.STOCKS
+        self.mode = AppMode.STARTUP
         self.ticker_size = TickerSize.LARGE
-        self.wifi_start_time = time.ticks_ms()
+        self.current_index = 0
+        self.wifi_connected = False
+        self.market_open = False
+        self.session = None
+        self.holiday = None
         
-        # Persistent state
-        self.data = {
-            "current_stock_index": 0,
-            "stock_data": {},
-            "last_update": -400000,
-            "wifi_connected": False,
-            "market_open": True,
-        }
-        State.load("stocks", self.data)
-        
-        # Ensure all stocks have data
+        # Stock data cache
+        self.stock_data = {}
         for ticker in STOCKS:
-            if ticker not in self.data["stock_data"]:
-                self.data["stock_data"][ticker] = get_mock_data(ticker)
-    
-    def get_current_stock(self):
-        """Get current ticker and its data, with bounds checking."""
-        idx = self.data["current_stock_index"]
-        if idx >= len(STOCKS):
-            idx = self.data["current_stock_index"] = 0
+            self.stock_data[ticker] = get_mock_data(ticker)
+            self.stock_data[ticker]["last_fetch_ms"] = 0  # Force fetch on startup
         
-        ticker = STOCKS[idx]
-        if ticker not in self.data["stock_data"]:
-            self.data["stock_data"][ticker] = get_mock_data(ticker)
+        # Startup state
+        self.startup_index = 0
+        self.startup_connecting = True
         
-        return ticker, self.data["stock_data"][ticker]
+        # Background fetch tracking
+        self.last_background_check = 0
+        self.background_index = 0
+        
+        # Refresh indicator
+        self.refreshing = False
     
-    def navigate_stocks(self, delta):
-        """Navigate to previous/next stock."""
-        self.data["current_stock_index"] = (
-            self.data["current_stock_index"] + delta
-        ) % len(STOCKS)
-        State.save("stocks", self.data)
+    def current_ticker(self):
+        if self.current_index >= len(STOCKS):
+            self.current_index = 0
+        return STOCKS[self.current_index]
     
-    def cycle_ticker_size(self):
-        """Cycle through ticker size modes."""
-        self.ticker_size = (self.ticker_size + 1) % TickerSize._COUNT
-        size_names = ["LARGE", "LARGER", "EVEN_LARGER", "GARGANTUAN"]
-        print(f"[stocks] Ticker size: {size_names[self.ticker_size]}")
+    def current_data(self):
+        return self.stock_data.get(self.current_ticker(), get_mock_data(self.current_ticker()))
     
     def handle_input(self):
-        """Process button input."""
-        # Navigation: Up = previous, Down = next (only in stocks view)
-        if self.view_mode == ViewMode.STOCKS:
-            if io.BUTTON_UP in io.pressed:
-                self.navigate_stocks(-1)
-            if io.BUTTON_DOWN in io.pressed:
-                self.navigate_stocks(1)
-            
-            # A button: Cycle ticker size
-            if io.BUTTON_A in io.pressed:
-                self.cycle_ticker_size()
+        """Process button input - always responsive."""
+        if self.mode == AppMode.STARTUP:
+            return  # No input during startup
         
-        # B button: Toggle info screen (or return from info)
+        if self.mode == AppMode.INFO:
+            if io.BUTTON_B in io.pressed:
+                self.mode = AppMode.NORMAL
+            return
+        
+        # Normal mode
+        if io.BUTTON_UP in io.pressed:
+            self.current_index = (self.current_index - 1) % len(STOCKS)
+        
+        if io.BUTTON_DOWN in io.pressed:
+            self.current_index = (self.current_index + 1) % len(STOCKS)
+        
+        if io.BUTTON_A in io.pressed:
+            self.ticker_size = (self.ticker_size + 1) % TickerSize._COUNT
+        
         if io.BUTTON_B in io.pressed:
-            if self.view_mode == ViewMode.INFO:
-                # Return to stocks view
-                self.view_mode = ViewMode.STOCKS
-            elif self.state == AppState.RUNNING:
-                # Show info screen
-                self.view_mode = ViewMode.INFO
-        
-        # A and C buttons reserved for future use
-        # if io.BUTTON_A in io.pressed:
-        #     pass
-        # if io.BUTTON_C in io.pressed:
-        #     pass
+            self.mode = AppMode.INFO
     
-    def update_state_machine(self):
-        """Process state machine transitions."""
-        now = time.ticks_ms()
-        
-        if self.state == AppState.RUNNING:
-            # Check for auto-update
-            if now - self.data["last_update"] >= UPDATE_INTERVAL_MS:
-                print("[stocks] Auto-update interval reached")
-                user_message("Stocks Update", ["Connecting to", "WiFi..."])
-                self.state = AppState.CONNECTING
-                self.wifi_start_time = now
-            else:
-                self.data["wifi_connected"] = wifi.is_connected()
-        
-        elif self.state == AppState.CONNECTING:
-            elapsed = now - self.wifi_start_time
-            user_message("Connecting", ["WiFi...", f"{elapsed // 1000}s..."])
-            
-            if wifi.is_connected() or wifi.connect():
+    def do_startup(self):
+        """Handle startup sequence - fetch all stocks with progress."""
+        # First, connect to WiFi
+        if self.startup_connecting:
+            wifi.tick()
+            if wifi.is_connected():
+                self.wifi_connected = True
+                self.startup_connecting = False
                 print("[stocks] WiFi connected")
-                self.state = AppState.CONNECTED
-                self.data["wifi_connected"] = True
-            elif elapsed >= WIFI_TIMEOUT_MS:
-                print("[stocks] WiFi timeout")
-                user_message("Connection Failed", ["Using cached", "data..."])
-                self.state = AppState.RUNNING
-                self.data["wifi_connected"] = False
+            elif wifi.connect():
+                self.wifi_connected = True
+                self.startup_connecting = False
+                print("[stocks] WiFi connected")
+            else:
+                # Keep showing connecting message
+                self.display.draw_splash("Connecting WiFi...", 0, len(STOCKS))
+                return
         
-        elif self.state == AppState.CONNECTED:
-            user_message("WiFi Connected", ["Fetching stock", "prices..."])
-            self.state = AppState.FETCHING
+        # Fetch stocks one at a time
+        if self.startup_index < len(STOCKS):
+            ticker = STOCKS[self.startup_index]
+            self.display.draw_splash(f"Fetching {ticker}...", self.startup_index, len(STOCKS))
+            
+            # Actually fetch
+            result = fetch_stock_data(ticker)
+            if result:
+                self.stock_data[ticker] = result
+            else:
+                # Mark error but keep going
+                self.stock_data[ticker]["error"] = True
+            
+            self.startup_index += 1
+        else:
+            # Done with startup
+            print("[stocks] Startup complete")
+            self.mode = AppMode.NORMAL
+    
+    def maybe_refresh_current(self):
+        """Check if current stock needs refresh, fetch if so."""
+        ticker = self.current_ticker()
+        data = self.current_data()
         
-        elif self.state == AppState.FETCHING:
-            fetch_all_stocks(self.data)
-            user_message("Update Complete", ["Stock data", "refreshed!"])
-            self.state = AppState.RUNNING
-            self.data["wifi_connected"] = True
+        if is_data_fresh(data, self.market_open):
+            return  # Data is fresh, no action needed
+        
+        if is_data_stale(data, self.market_open):
+            # Need to refresh
+            self.refreshing = True
+            result = fetch_stock_data(ticker)
+            if result:
+                self.stock_data[ticker] = result
+            else:
+                self.stock_data[ticker]["error"] = True
+            self.refreshing = False
+    
+    def maybe_background_fetch(self):
+        """Periodically refresh one non-current stock."""
+        now = time.ticks_ms()
+        if now - self.last_background_check < BACKGROUND_CHECK_MS:
+            return
+        
+        self.last_background_check = now
+        
+        # Find a non-current stock that's stale
+        current = self.current_ticker()
+        for i in range(len(STOCKS)):
+            idx = (self.background_index + i) % len(STOCKS)
+            ticker = STOCKS[idx]
+            if ticker == current:
+                continue
+            
+            data = self.stock_data.get(ticker)
+            if is_data_stale(data, self.market_open):
+                print(f"[stocks] Background fetch: {ticker}")
+                result = fetch_stock_data(ticker)
+                if result:
+                    self.stock_data[ticker] = result
+                else:
+                    self.stock_data[ticker]["error"] = True
+                self.background_index = (idx + 1) % len(STOCKS)
+                break
     
     def update(self):
-        """Main update loop - called every frame."""
+        """Main update loop."""
         wifi.tick()
         self.handle_input()
-        self.update_state_machine()
         
-        # Update market status from API (cached)
-        market_open, session, holiday = fetch_market_status()
-        self.data["market_open"] = market_open
+        # Update market status (cached)
+        self.market_open, self.session, self.holiday = fetch_market_status()
+        self.wifi_connected = wifi.is_connected()
         
-        # Render appropriate view
-        if self.view_mode == ViewMode.INFO:
-            self.display.render_info(
-                wifi_connected=self.data["wifi_connected"],
-                last_update=self.data["last_update"],
-                market_open=self.data["market_open"],
-            )
-        else:
-            ticker, data = self.get_current_stock()
-            self.display.render(
-                ticker=ticker,
-                data=data,
-                market_open=market_open,
-                session=session,
-                holiday=holiday,
-                wifi_connected=self.data["wifi_connected"],
-                ticker_size=self.ticker_size,
-            )
+        if self.mode == AppMode.STARTUP:
+            self.do_startup()
+            return
+        
+        if self.mode == AppMode.INFO:
+            # Find most recent fetch time
+            latest = 0
+            for data in self.stock_data.values():
+                t = data.get("last_fetch_ms", 0)
+                if t > latest:
+                    latest = t
+            self.display.render_info(self.wifi_connected, latest, self.market_open)
+            return
+        
+        # Normal mode
+        self.maybe_refresh_current()
+        self.maybe_background_fetch()
+        
+        self.display.render_stock(
+            self.current_ticker(),
+            self.current_data(),
+            self.market_open,
+            self.session,
+            self.holiday,
+            self.ticker_size,
+            self.refreshing
+        )
 
 
 # =============================================================================
@@ -776,18 +780,13 @@ _app = None
 def init():
     global _app
     _app = StocksApp()
-    State.save("stocks", _app.data)
-
 
 def update():
     _app.update()
 
-
 def on_exit():
     pass
 
-
-# Standalone support for Thonny debugging
 if __name__ == "__main__":
     run(update, init=init, on_exit=on_exit)
 
