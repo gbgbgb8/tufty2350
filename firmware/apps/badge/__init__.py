@@ -18,7 +18,7 @@ id_name = "Your Name"
 id_role = "Job title"
 
 # see the 'assets/social' folder to see what's supported
-id_socials = {"bluesky": {"icon": None, "handle": ""},
+id_socials = {"x": {"icon": None, "handle": ""},
               "instagram": {"icon": None, "handle": ""},
               "github": {"icon": None, "handle": ""},
               "discord": {"icon": None, "handle": ""}
