@@ -40,6 +40,13 @@ More details at [https://badgewa.re](https://badgewa.re)
 
 ## Help
 
+### Stockpets App
+
+A silly way to keep an eye on your tickers. Most code borrowed from the Stocks App below.
+
+![Stockpets App Screenshot](stockpets-screenshot.jpeg)
+
+
 ### Stocks App
 
 A real-time US stock ticker for your badge. Track your favorite stocks with a glanceable display that's perfect for conferences, your desk, or just flexing your portfolio.

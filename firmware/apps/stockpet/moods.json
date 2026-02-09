@@ -1,0 +1,62 @@
+{
+    "up_big": [
+        "TO THE MOON!",
+        "STONKS!",
+        "LFG!",
+        "We're so back!",
+        "Lambo when?",
+        "Money printer go brrr",
+        "Bear r fuk",
+        "Feeling THICC"
+    ],
+    "up": [
+        "Not bad!",
+        "Vibin'",
+        "Green is good",
+        "Tendies incoming",
+        "Comfy gains",
+        "Slow and steady",
+        "Bullish af",
+        "Feelin' fed"
+    ],
+    "flat": [
+        "meh.",
+        "...",
+        "Are we there yet?",
+        "Flat is... fine?",
+        "Theta gang wins",
+        "Boring day",
+        "Wake me up later",
+        "*yawn*"
+    ],
+    "down": [
+        "This is fine.",
+        "Pain.",
+        "Ramen tonight",
+        "Buy the dip?",
+        "Could be worse...",
+        "I'm not crying",
+        "Ow.",
+        "Getting lean"
+    ],
+    "down_big": [
+        "GUH.",
+        "REEEE",
+        "I'm in danger",
+        "It's over.",
+        "Margin calling...",
+        "Wendy's hiring?",
+        "Send help",
+        "Skeleton mode"
+    ],
+    "sleeping": [
+        "zzz...",
+        "Markets closed",
+        "Nap time",
+        "Dreaming of green",
+        "Do not disturb",
+        "Counting sheep...",
+        "Shhh...",
+        "Gone fishing"
+    ]
+}
