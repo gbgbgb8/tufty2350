@@ -66,7 +66,9 @@ A real-time US stock ticker for your badge. Track your favorite stocks with a gl
 
 1. Get a free API key from [Finnhub](https://finnhub.io/) (60 calls/min free tier)
 2. Connect badge to computer, double-tap RESET to enter disk mode
-3. Edit `secrets.py`:
+3. Copy any of the apps folders into your own device's apps folder.  https://github.com/gbgbgb8/tufty2350/tree/main/firmware/apps 
+
+4. Edit `secrets.py`:
 
 ```python
 WIFI_SSID = "YourNetwork"
@@ -76,7 +78,7 @@ TIMEZONE = -8  # Your UTC offset (e.g., -8 for Pacific, -5 for Eastern)
 STOCKS = ["TSLA", "PLTR", "SPY", "QQQ"]  # Your stock symbols
 ```
 
-4. Safely unmount and reboot
+5. Safely unmount and reboot
 
 #### Controls
 
@@ -141,49 +143,6 @@ With default settings (4 stocks):
 - Set `TIMEZONE` in secrets.py to your UTC offset
 - Example: Pacific = -8, Eastern = -5, UTC = 0
 
-### Updating/Reflashing Firmware
-
-:warning: Our firmware comes in two flavours:
-
-1. `tufty-vX.X.X-micropython-with-filesystem` which will replace all the apps and software on your device with the defaults, and
-
-2. `tufty-vX.X.X-micropython.uf2` which will replace only the firmware.
-
-Pick your desired firmware image from the latest release at [https://github.com/pimoroni/tufty2350/releases/latest](https://github.com/pimoroni/tufty2350/releases/latest)
-
-Then:
-
-* Connect your badge to your computer with a USB Type-C to USB A cable.
-* Turn your badge around so the back is facing you.
-* Press and hold the BOOT button towards the far left.
-* Briefly tap the RESET button to the right of BOOT.
-* A disk named "RP2350" should appear on your computer.
-* Drag and drop the firmware .uf2 onto this disk.
-* Your badge should update and reboot into the menu!
-
-### Installing Apps
-
-* Connect your badge to your computer with a USB Type-C to USB A cable.
-* Turn your badge around so the back is facing you.
-* Double-tap the RESET button, located toward the right on the left-hand side of the badge.
-* A disk named "Tufty2350" should appear on your computer.
-* Copy your app directory into "apps".
-* *Safely Unmount* the disk from your computer. This may take a second.
-* Your badge should reboot into the menu!
-
-### Configuring WiFi
-
-* Connect your badge to your computer with a USB Type-C to USB A cable.
-* Turn your badge around so the back is facing you.
-* Double-tap the RESET button, located toward the right on the left-hand side of the badge.
-* A disk named "Tufty2350" should appear on your computer.
-* Edit the file "secrets.py" and fill in your WiFi credentials.
-* *Safely Unmount* the disk from your computer. This may take a second.
-* Your badge should reboot into the menu!
-
-### API Documentation
-
-For comprehensive documentation of the Badgeware API, see: [https://badgewa.re/docs](https://badgewa.re/docs)
 
 ---
 
