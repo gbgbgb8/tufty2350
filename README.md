@@ -11,14 +11,6 @@ This is a variant of the Tufty 2350 Badgeware, customized for US users with US-f
 
 ![Tufty 2350 front](https://badgewa.re/static/images/tufty_web_front.png)
 
-- [Specs](#specs)
-- [Meet The Badgeware Family](#meet-the-badgeware-family)
-- [Help](#help)
-  - [Stocks App](#stocks-app)
-  - [Updating/Reflashing Firmware](#updatingreflashing-firmware)
-  - [Installing Apps](#installing-apps)
-  - [Configuring WiFi](#configuring-wifi)
-  - [API Documentation](#api-documentation)
 
 ## Specs
 
